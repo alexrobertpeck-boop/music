@@ -1,0 +1,790 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Music — album tracker</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%B5%3C/text%3E%3C/svg%3E">
+
+<!-- Supabase JS client (UMD). Same version mlb-dashboard uses. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+<style>
+  :root {
+    --bg: #faf8f3;
+    --surface: #fff;
+    --ink: #1f1d1a;
+    --muted: #6b6660;
+    --line: #e8e3da;
+    --accent: #b8431f;
+    --accent-soft: #efd9cf;
+    --good: #2f7a3a;
+    --warn: #b07315;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+  }
+  h1, h2, h3 { font-weight: 600; letter-spacing: -0.01em; }
+  a { color: var(--accent); }
+  button { font: inherit; cursor: pointer; }
+
+  /* ─── header ─── */
+  header.site {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 22px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; z-index: 50;
+  }
+  header.site h1 {
+    margin: 0; font-size: 18px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  header.site h1 .leaf { color: var(--accent); }
+  .auth-area { display: flex; align-items: center; gap: 10px; }
+  .auth-btn, .auth-logout-btn {
+    background: var(--accent); color: #fff; border: 0; border-radius: 6px;
+    padding: 8px 14px; font-weight: 500;
+  }
+  .auth-logout-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+  .auth-user-info { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--muted); }
+  .auth-user-info .who { font-weight: 500; color: var(--ink); }
+
+  /* ─── tabs (just one for Phase 1; structure here for later) ─── */
+  nav.tabs {
+    display: flex; gap: 4px;
+    padding: 0 22px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+  }
+  nav.tabs button {
+    background: transparent; border: 0;
+    padding: 12px 16px;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  nav.tabs button.active { color: var(--ink); border-bottom-color: var(--accent); }
+  nav.tabs .future {
+    color: #c4beb4; cursor: not-allowed;
+    font-style: italic;
+  }
+  nav.tabs .future::after { content: " · soon"; font-size: 11px; }
+
+  /* ─── layout ─── */
+  main { max-width: 1100px; margin: 0 auto; padding: 22px; }
+  .section-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px; gap: 12px; flex-wrap: wrap;
+  }
+  .section-head h2 { margin: 0; font-size: 22px; }
+  .section-head .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .add-btn {
+    background: var(--accent); color: #fff; border: 0; border-radius: 6px;
+    padding: 9px 16px; font-weight: 500;
+  }
+  .add-btn:disabled { background: #c8c2b8; cursor: not-allowed; }
+
+  .toolbar {
+    display: flex; gap: 10px; flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .toolbar input, .toolbar select {
+    font: inherit; padding: 8px 10px;
+    border: 1px solid var(--line); border-radius: 6px;
+    background: var(--surface);
+  }
+  .toolbar input[type="search"] { min-width: 240px; flex: 1; max-width: 360px; }
+  .toolbar .count { margin-left: auto; align-self: center; color: var(--muted); font-size: 13px; }
+
+  /* ─── album list ─── */
+  .album-list { display: grid; gap: 8px; }
+  .album-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto auto;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 14px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  .album-row .meta {
+    min-width: 0;
+  }
+  .album-row .artist { font-weight: 600; }
+  .album-row .album { color: var(--ink); }
+  .album-row .year { color: var(--muted); font-size: 13px; }
+  .album-row .notes-preview { color: var(--muted); font-size: 13px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rating-pill {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 36px; height: 30px; border-radius: 999px;
+    background: var(--accent-soft); color: var(--accent);
+    font-variant-numeric: tabular-nums; font-weight: 600;
+  }
+  .rating-pill.unrated { background: #f1ede5; color: var(--muted); font-weight: 400; }
+  .row-actions { display: flex; gap: 6px; }
+  .row-actions button {
+    background: transparent; border: 1px solid var(--line); border-radius: 6px;
+    padding: 6px 10px; color: var(--muted); font-size: 13px;
+  }
+  .row-actions button:hover { color: var(--ink); border-color: #cfc8bc; }
+  .row-actions .danger:hover { color: #a3261a; border-color: #e0bcb6; }
+
+  .empty {
+    padding: 40px 24px; text-align: center;
+    color: var(--muted); border: 1px dashed var(--line); border-radius: 8px;
+    background: var(--surface);
+  }
+  .empty strong { color: var(--ink); }
+  .loading { padding: 24px; text-align: center; color: var(--muted); }
+  .gate {
+    padding: 48px 24px; text-align: center;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    max-width: 520px; margin: 60px auto;
+  }
+  .gate h2 { margin: 0 0 8px; }
+  .gate p { color: var(--muted); margin: 0 0 18px; }
+
+  /* ─── modal (shared shell) ─── */
+  .modal { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; }
+  .modal[hidden] { display: none; }
+  .modal-backdrop { position: absolute; inset: 0; background: rgba(20,18,15,0.45); }
+  .modal-content {
+    position: relative;
+    background: var(--surface); border-radius: 10px;
+    padding: 24px;
+    width: min(440px, calc(100vw - 32px));
+    box-shadow: 0 10px 40px rgba(0,0,0,0.18);
+    max-height: calc(100vh - 32px); overflow-y: auto;
+  }
+  .modal-content.wide { width: min(560px, calc(100vw - 32px)); }
+  .modal-close {
+    position: absolute; top: 10px; right: 10px;
+    background: transparent; border: 0; font-size: 22px; color: var(--muted);
+  }
+  .modal h2 { margin: 0 0 16px; font-size: 20px; }
+
+  /* ─── auth modal specifics ─── */
+  .auth-google-btn {
+    width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px;
+    background: #fff; border: 1px solid #dadada; border-radius: 6px;
+    padding: 10px 14px; font-weight: 500;
+  }
+  .auth-google-btn svg { width: 18px; height: 18px; }
+  .auth-divider { text-align: center; color: var(--muted); margin: 14px 0; position: relative; }
+  .auth-divider::before, .auth-divider::after { content: ''; position: absolute; top: 50%; width: 40%; height: 1px; background: var(--line); }
+  .auth-divider::before { left: 0; }
+  .auth-divider::after { right: 0; }
+  .auth-divider span { background: var(--surface); padding: 0 8px; position: relative; }
+
+  /* ─── shared form ─── */
+  .form { display: grid; gap: 12px; }
+  .form label { font-size: 13px; font-weight: 500; color: var(--muted); display: block; margin-bottom: 4px; }
+  .form input, .form select, .form textarea {
+    width: 100%; font: inherit;
+    padding: 9px 11px;
+    border: 1px solid var(--line); border-radius: 6px; background: var(--surface);
+    color: var(--ink);
+  }
+  .form textarea { resize: vertical; min-height: 88px; font-family: inherit; }
+  .form .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form .submit {
+    background: var(--accent); color: #fff; border: 0; border-radius: 6px;
+    padding: 10px 14px; font-weight: 500;
+  }
+  .form .submit:disabled { background: #c8c2b8; cursor: not-allowed; }
+  .form-toggle { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .form-toggle button { background: transparent; border: 0; color: var(--accent); padding: 0; }
+  .form .message { padding: 8px 10px; border-radius: 6px; font-size: 13px; display: block; }
+  .form .message[hidden] { display: none; }
+  .form .message.error { background: #fbe8e5; color: #8a2618; }
+  .form .message.info { background: #e9efe6; color: var(--good); }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <h1><span class="leaf">🎵</span> Music</h1>
+  <div class="auth-area" id="auth-area"></div>
+</header>
+
+<nav class="tabs" id="tabs" hidden>
+  <button data-tab="albums" class="active">My Albums</button>
+  <button class="future" disabled>Recommendations</button>
+  <button class="future" disabled>Album Club</button>
+  <button class="future" disabled>Summary</button>
+</nav>
+
+<main id="main">
+  <!-- Logged-out gate -->
+  <div class="gate" id="gate">
+    <h2>Album tracker</h2>
+    <p>Log in to see your collection.</p>
+    <button class="add-btn" id="gate-login-btn">Log in</button>
+  </div>
+
+  <!-- Albums tab -->
+  <section id="tab-albums" hidden>
+    <div class="section-head">
+      <div>
+        <h2>My Albums</h2>
+        <div class="sub">Personal listening — drives your taste profile and recommendations.</div>
+      </div>
+      <button class="add-btn" id="add-album-btn">+ Add album</button>
+    </div>
+
+    <div class="toolbar">
+      <input type="search" id="album-search" placeholder="Search artist or album…" autocomplete="off">
+      <select id="album-sort">
+        <option value="recent">Recently rated</option>
+        <option value="rating-desc">Rating · high → low</option>
+        <option value="rating-asc">Rating · low → high</option>
+        <option value="artist">Artist · A → Z</option>
+        <option value="year-desc">Year · new → old</option>
+        <option value="year-asc">Year · old → new</option>
+      </select>
+      <select id="album-rating-filter">
+        <option value="">All ratings</option>
+        <option value="unrated">Unrated only</option>
+        <option value="9-10">9–10 (loved)</option>
+        <option value="7-8">7–8</option>
+        <option value="5-6">5–6</option>
+        <option value="3-4">3–4</option>
+        <option value="1-2">1–2</option>
+      </select>
+      <div class="count" id="album-count"></div>
+    </div>
+
+    <div id="album-list-container">
+      <div class="loading">Loading…</div>
+    </div>
+  </section>
+</main>
+
+<!-- ────── Auth modal ────── -->
+<div class="modal" id="auth-modal" hidden>
+  <div class="modal-backdrop"></div>
+  <div class="modal-content">
+    <button class="modal-close" id="auth-modal-close" aria-label="Close">×</button>
+    <h2 id="auth-modal-title">Log in</h2>
+    <button type="button" class="auth-google-btn" id="auth-google-btn">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+      </svg>
+      Continue with Google
+    </button>
+    <div class="auth-divider"><span>or</span></div>
+    <form class="form" id="auth-form">
+      <div>
+        <label for="auth-email">Email</label>
+        <input type="email" id="auth-email" autocomplete="email" required>
+      </div>
+      <div>
+        <label for="auth-password">Password</label>
+        <input type="password" id="auth-password" autocomplete="current-password" required minlength="6">
+      </div>
+      <div class="message" id="auth-message" hidden></div>
+      <button type="submit" class="submit" id="auth-submit">Log in</button>
+      <div class="form-toggle">
+        <span id="auth-toggle-text">Don't have an account?</span>
+        <button type="button" id="auth-toggle-btn">Sign up</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ────── Add / edit album modal ────── -->
+<div class="modal" id="album-modal" hidden>
+  <div class="modal-backdrop"></div>
+  <div class="modal-content wide">
+    <button class="modal-close" id="album-modal-close" aria-label="Close">×</button>
+    <h2 id="album-modal-title">Add album</h2>
+    <form class="form" id="album-form">
+      <input type="hidden" id="album-id">
+      <div class="row">
+        <div>
+          <label for="album-artist">Artist</label>
+          <input type="text" id="album-artist" required maxlength="200" placeholder="Radiohead">
+        </div>
+        <div>
+          <label for="album-title">Album</label>
+          <input type="text" id="album-title" required maxlength="200" placeholder="OK Computer">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="album-year">Year</label>
+          <input type="number" id="album-year" min="1900" max="2100" placeholder="1997">
+        </div>
+        <div>
+          <label for="album-rating">Rating (1–10)</label>
+          <select id="album-rating">
+            <option value="">— unrated —</option>
+            <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+            <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label for="album-notes">Notes</label>
+        <textarea id="album-notes" placeholder="What stood out? Highlights, lowlights, when/where you listened…" maxlength="4000"></textarea>
+      </div>
+      <div class="message" id="album-message" hidden></div>
+      <button type="submit" class="submit" id="album-submit">Save</button>
+    </form>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ─── Supabase init ──────────────────────────────────────────────────────────
+   Fill these in after creating your Supabase project:
+   Dashboard → Project Settings → API → Project URL + anon (public) key.
+   The anon key is safe to put on the frontend; service role is server-side only. */
+const SUPABASE_URL = 'https://ekxfqnicegckvcxhekll.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_i9QvY9zXDlaqoxrsgHEixA_81qe1X4D';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* ─── tiny helpers ──────────────────────────────────────────────────────────*/
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+function $(sel) { return document.querySelector(sel); }
+function show(el) { el.hidden = false; }
+function hide(el) { el.hidden = true; }
+function disableScroll(on) { document.body.style.overflow = on ? 'hidden' : ''; }
+
+/* ─── state ────────────────────────────────────────────────────────────────*/
+let currentUser = null;            // {id, email} or null
+let albumsCache = [];              // joined rows: {album_id, artist, album, year, rating, notes, rated_at, match_status}
+let albumsLoaded = false;
+
+/* ─── auth area + modal ────────────────────────────────────────────────────*/
+let authMode = 'login';
+
+function renderAuthArea(user) {
+  const el = $('#auth-area');
+  if (user) {
+    el.innerHTML = `
+      <div class="auth-user-info">
+        <span class="who">${escapeHtml(user.email || user.id)}</span>
+        <button class="auth-logout-btn" id="auth-logout-btn">Log out</button>
+      </div>`;
+    $('#auth-logout-btn').addEventListener('click', async () => { await sb.auth.signOut(); });
+  } else {
+    el.innerHTML = `<button class="auth-btn" id="auth-login-btn">Log in</button>`;
+    $('#auth-login-btn').addEventListener('click', () => openAuthModal('login'));
+  }
+}
+
+function openAuthModal(mode) {
+  authMode = mode;
+  updateAuthModalUI();
+  show($('#auth-modal'));
+  disableScroll(true);
+  setTimeout(() => $('#auth-email').focus(), 50);
+}
+function closeAuthModal() {
+  hide($('#auth-modal'));
+  disableScroll(false);
+  $('#auth-form').reset();
+  setAuthMessage(null);
+}
+function setAuthMessage(text, kind = 'error') {
+  const el = $('#auth-message');
+  if (!text) { hide(el); return; }
+  el.textContent = text;
+  el.className = `message ${kind}`;
+  show(el);
+}
+function updateAuthModalUI() {
+  const isLogin = authMode === 'login';
+  $('#auth-modal-title').textContent = isLogin ? 'Log in' : 'Sign up';
+  $('#auth-submit').textContent = isLogin ? 'Log in' : 'Sign up';
+  $('#auth-toggle-text').textContent = isLogin ? "Don't have an account?" : 'Already have an account?';
+  $('#auth-toggle-btn').textContent = isLogin ? 'Sign up' : 'Log in';
+  $('#auth-password').autocomplete = isLogin ? 'current-password' : 'new-password';
+}
+
+async function handleAuthSubmit(e) {
+  e.preventDefault();
+  const email = $('#auth-email').value.trim();
+  const password = $('#auth-password').value;
+  const submitBtn = $('#auth-submit');
+  setAuthMessage(null);
+  submitBtn.disabled = true;
+  try {
+    if (authMode === 'login') {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) { setAuthMessage(error.message, 'error'); return; }
+      closeAuthModal();
+    } else {
+      const { error } = await sb.auth.signUp({ email, password });
+      if (error) { setAuthMessage(error.message, 'error'); return; }
+      setAuthMessage('Check your email for a confirmation link.', 'info');
+    }
+  } finally {
+    submitBtn.disabled = false;
+  }
+}
+
+async function handleGoogleSignIn() {
+  setAuthMessage(null);
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.origin + window.location.pathname },
+  });
+  if (error) setAuthMessage(error.message, 'error');
+}
+
+function wireAuthModal() {
+  $('#auth-modal .modal-backdrop').addEventListener('click', closeAuthModal);
+  $('#auth-modal-close').addEventListener('click', closeAuthModal);
+  $('#auth-toggle-btn').addEventListener('click', () => {
+    authMode = authMode === 'login' ? 'signup' : 'login';
+    updateAuthModalUI();
+    setAuthMessage(null);
+  });
+  $('#auth-form').addEventListener('submit', handleAuthSubmit);
+  $('#auth-google-btn').addEventListener('click', handleGoogleSignIn);
+  $('#gate-login-btn').addEventListener('click', () => openAuthModal('login'));
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!$('#auth-modal').hidden) closeAuthModal();
+    if (!$('#album-modal').hidden) closeAlbumModal();
+  });
+}
+
+/* ─── auth state subscription ──────────────────────────────────────────────
+   Only navigate/reload on actual user change. Token refreshes can fire
+   SIGNED_IN on tab focus in some SDK versions with the same user — ignore. */
+let knownUserId;  // undefined = not seen yet
+sb.auth.onAuthStateChange((_event, session) => {
+  const user = session?.user ?? null;
+  const userId = user?.id ?? null;
+  if (knownUserId === undefined) {
+    knownUserId = userId;
+    onUserResolved(user);
+    return;
+  }
+  if (userId !== knownUserId) {
+    knownUserId = userId;
+    window.location.href = '/';
+    return;
+  }
+  // Same user — just refresh the auth UI.
+  renderAuthArea(user);
+});
+
+function onUserResolved(user) {
+  currentUser = user;
+  renderAuthArea(user);
+  if (user) {
+    show($('#tabs'));
+    hide($('#gate'));
+    show($('#tab-albums'));
+    loadAlbums();
+  } else {
+    hide($('#tabs'));
+    show($('#gate'));
+    hide($('#tab-albums'));
+    albumsCache = [];
+    albumsLoaded = false;
+  }
+}
+
+/* ─── albums: load ────────────────────────────────────────────────────────*/
+async function loadAlbums() {
+  if (!currentUser) return;
+  const container = $('#album-list-container');
+  container.innerHTML = '<div class="loading">Loading…</div>';
+
+  /* Defense-in-depth: RLS already restricts personal_ratings to own rows,
+     but we add the explicit user_id filter so even policy drift won't leak
+     dad's rows into Alex's My Albums view, or vice versa. */
+  const { data, error } = await sb
+    .from('personal_ratings')
+    .select('rating, notes, rated_at, album:albums ( id, artist, album, year, match_status )')
+    .eq('user_id', currentUser.id)
+    .order('rated_at', { ascending: false })
+    .limit(2000);
+
+  if (error) {
+    console.error('Load albums failed:', error);
+    container.innerHTML = `<div class="empty"><strong>Couldn't load albums.</strong><br>${escapeHtml(error.message)}<br><br>If this is your first run, did you paste <code>schema.sql</code> into Supabase and add your <code>household_members</code> row?</div>`;
+    return;
+  }
+
+  albumsCache = (data || []).map(r => ({
+    album_id: r.album.id,
+    artist: r.album.artist,
+    album: r.album.album,
+    year: r.album.year,
+    match_status: r.album.match_status,
+    rating: r.rating,
+    notes: r.notes,
+    rated_at: r.rated_at,
+  }));
+  albumsLoaded = true;
+  renderAlbumList();
+}
+
+/* ─── albums: render ──────────────────────────────────────────────────────*/
+function renderAlbumList() {
+  const container = $('#album-list-container');
+  const countEl = $('#album-count');
+  if (!albumsLoaded) { container.innerHTML = '<div class="loading">Loading…</div>'; return; }
+
+  const q = ($('#album-search').value || '').trim().toLowerCase();
+  const sort = $('#album-sort').value;
+  const ratingFilter = $('#album-rating-filter').value;
+
+  let rows = albumsCache.slice();
+  if (q) {
+    rows = rows.filter(r =>
+      (r.artist || '').toLowerCase().includes(q) ||
+      (r.album || '').toLowerCase().includes(q)
+    );
+  }
+  if (ratingFilter) {
+    if (ratingFilter === 'unrated') rows = rows.filter(r => r.rating == null);
+    else {
+      const [lo, hi] = ratingFilter.split('-').map(Number);
+      rows = rows.filter(r => r.rating != null && r.rating >= lo && r.rating <= hi);
+    }
+  }
+  rows.sort((a, b) => {
+    switch (sort) {
+      case 'rating-desc': return (b.rating ?? -1) - (a.rating ?? -1) || cmpRecent(a, b);
+      case 'rating-asc':  return (a.rating ?? 99) - (b.rating ?? 99) || cmpRecent(a, b);
+      case 'artist':      return (a.artist || '').localeCompare(b.artist || '');
+      case 'year-desc':   return (b.year ?? 0) - (a.year ?? 0);
+      case 'year-asc':    return (a.year ?? 9999) - (b.year ?? 9999);
+      case 'recent':
+      default:            return cmpRecent(a, b);
+    }
+  });
+
+  countEl.textContent = `${rows.length} of ${albumsCache.length}`;
+
+  if (rows.length === 0) {
+    if (albumsCache.length === 0) {
+      container.innerHTML = `<div class="empty"><strong>No albums yet.</strong><br>Click <em>+ Add album</em> to log your first one. The 339 from your CSV land here in Phase 2.</div>`;
+    } else {
+      container.innerHTML = `<div class="empty"><strong>No matches.</strong> Try clearing the filters.</div>`;
+    }
+    return;
+  }
+
+  container.innerHTML = `<div class="album-list">${rows.map(rowHtml).join('')}</div>`;
+  container.querySelectorAll('.row-actions [data-action]').forEach(btn => {
+    btn.addEventListener('click', () => onRowAction(btn.dataset.action, btn.dataset.id));
+  });
+}
+
+function cmpRecent(a, b) {
+  return (b.rated_at || '').localeCompare(a.rated_at || '');
+}
+
+function rowHtml(r) {
+  const rating = r.rating == null
+    ? `<span class="rating-pill unrated">—</span>`
+    : `<span class="rating-pill">${r.rating}</span>`;
+  const yr = r.year ? ` <span class="year">· ${escapeHtml(String(r.year))}</span>` : '';
+  const notes = r.notes
+    ? `<div class="notes-preview" title="${escapeHtml(r.notes)}">${escapeHtml(r.notes)}</div>`
+    : '';
+  return `<div class="album-row" data-id="${escapeHtml(r.album_id)}">
+    <div class="meta">
+      <div><span class="artist">${escapeHtml(r.artist || 'Unknown artist')}</span> — <span class="album">${escapeHtml(r.album || 'Untitled')}</span>${yr}</div>
+      ${notes}
+    </div>
+    ${rating}
+    <div class="row-actions">
+      <button data-action="edit" data-id="${escapeHtml(r.album_id)}">Edit</button>
+      <button class="danger" data-action="delete" data-id="${escapeHtml(r.album_id)}">Delete</button>
+    </div>
+  </div>`;
+}
+
+function onRowAction(action, albumId) {
+  const row = albumsCache.find(r => r.album_id === albumId);
+  if (!row) return;
+  if (action === 'edit') openAlbumModal(row);
+  if (action === 'delete') deleteRating(row);
+}
+
+/* ─── albums: add / edit modal ─────────────────────────────────────────────*/
+function openAlbumModal(existing) {
+  const modal = $('#album-modal');
+  $('#album-id').value = existing?.album_id || '';
+  $('#album-artist').value = existing?.artist || '';
+  $('#album-title').value = existing?.album || '';
+  $('#album-year').value = existing?.year ?? '';
+  $('#album-rating').value = existing?.rating == null ? '' : String(existing.rating);
+  $('#album-notes').value = existing?.notes || '';
+  $('#album-modal-title').textContent = existing ? 'Edit album' : 'Add album';
+  setAlbumMessage(null);
+  show(modal);
+  disableScroll(true);
+  setTimeout(() => $('#album-artist').focus(), 50);
+}
+function closeAlbumModal() {
+  hide($('#album-modal'));
+  disableScroll(false);
+  $('#album-form').reset();
+  setAlbumMessage(null);
+}
+function setAlbumMessage(text, kind = 'error') {
+  const el = $('#album-message');
+  if (!text) { hide(el); return; }
+  el.textContent = text;
+  el.className = `message ${kind}`;
+  show(el);
+}
+
+async function handleAlbumSubmit(e) {
+  e.preventDefault();
+  if (!currentUser) return;
+
+  const albumId   = $('#album-id').value || null;
+  const artist    = $('#album-artist').value.trim();
+  const albumName = $('#album-title').value.trim();
+  const yearRaw   = $('#album-year').value.trim();
+  const ratingRaw = $('#album-rating').value;
+  const notes     = $('#album-notes').value.trim() || null;
+
+  if (!artist || !albumName) {
+    setAlbumMessage('Artist and album are required.'); return;
+  }
+  const year = yearRaw === '' ? null : Number(yearRaw);
+  if (year != null && (!Number.isFinite(year) || year < 1900 || year > 2100)) {
+    setAlbumMessage('Year looks off. Try 1900–2100.'); return;
+  }
+  const rating = ratingRaw === '' ? null : Number(ratingRaw);
+
+  const submitBtn = $('#album-submit');
+  submitBtn.disabled = true;
+  setAlbumMessage('Saving…', 'info');
+
+  try {
+    let resolvedAlbumId = albumId;
+
+    if (!resolvedAlbumId) {
+      /* New entry. Catalog dedupe is case-insensitive on (artist, album) — see
+         the unique index in schema.sql. We try insert first; on unique conflict
+         we look up the existing row instead. Avoids a roundtrip on the common
+         "this album is new" path. */
+      const { data: ins, error: insErr } = await sb
+        .from('albums')
+        .insert({ artist, album: albumName, year, added_by: currentUser.id, match_status: 'pending' })
+        .select('id')
+        .single();
+
+      if (insErr) {
+        if (insErr.code === '23505') {
+          // Duplicate — fetch the existing row.
+          const { data: existing, error: lookupErr } = await sb
+            .from('albums')
+            .select('id')
+            .ilike('artist', artist)
+            .ilike('album', albumName)
+            .limit(1)
+            .maybeSingle();
+          if (lookupErr || !existing) {
+            console.error('Lookup after dedupe failed:', lookupErr);
+            setAlbumMessage('Already exists, but I couldn\'t find it. Try refreshing.'); return;
+          }
+          resolvedAlbumId = existing.id;
+        } else {
+          console.error('Album insert failed:', insErr);
+          setAlbumMessage(`Couldn't save: ${insErr.message}`); return;
+        }
+      } else {
+        resolvedAlbumId = ins.id;
+      }
+    } else {
+      /* Editing — update catalog row metadata if changed. Touch only the fields
+         the user can edit here. Spotify match_status stays untouched. */
+      const { error: updErr } = await sb
+        .from('albums')
+        .update({ artist, album: albumName, year })
+        .eq('id', resolvedAlbumId);
+      if (updErr) {
+        console.error('Album update failed:', updErr);
+        setAlbumMessage(`Couldn't update album: ${updErr.message}`); return;
+      }
+    }
+
+    /* Upsert the personal_ratings row for the current user. Same album_id +
+       user_id PK → upsert handles both create-rating and edit-rating cases. */
+    const { error: rateErr } = await sb
+      .from('personal_ratings')
+      .upsert({
+        album_id: resolvedAlbumId,
+        user_id: currentUser.id,
+        rating,
+        notes,
+        rated_at: new Date().toISOString(),
+      }, { onConflict: 'album_id,user_id' });
+
+    if (rateErr) {
+      console.error('Rating upsert failed:', rateErr);
+      setAlbumMessage(`Couldn't save rating: ${rateErr.message}`); return;
+    }
+
+    closeAlbumModal();
+    await loadAlbums();
+  } finally {
+    submitBtn.disabled = false;
+  }
+}
+
+async function deleteRating(row) {
+  if (!currentUser) return;
+  if (!confirm(`Remove "${row.album}" by ${row.artist} from your collection?\n\n(The album stays in the shared catalog — only your rating is removed.)`)) return;
+  const { error } = await sb
+    .from('personal_ratings')
+    .delete()
+    .eq('album_id', row.album_id)
+    .eq('user_id', currentUser.id);
+  if (error) {
+    console.error('Delete rating failed:', error);
+    alert(`Couldn't delete: ${error.message}`);
+    return;
+  }
+  await loadAlbums();
+}
+
+/* ─── wire toolbar + album form ────────────────────────────────────────────*/
+function wireAlbumsTab() {
+  $('#add-album-btn').addEventListener('click', () => openAlbumModal(null));
+  $('#album-modal .modal-backdrop').addEventListener('click', closeAlbumModal);
+  $('#album-modal-close').addEventListener('click', closeAlbumModal);
+  $('#album-form').addEventListener('submit', handleAlbumSubmit);
+
+  let searchDebounce;
+  $('#album-search').addEventListener('input', () => {
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(renderAlbumList, 120);
+  });
+  $('#album-sort').addEventListener('change', renderAlbumList);
+  $('#album-rating-filter').addEventListener('change', renderAlbumList);
+}
+
+/* ─── init ────────────────────────────────────────────────────────────────*/
+wireAuthModal();
+wireAlbumsTab();
+
+</script>
+</body>
+</html>
