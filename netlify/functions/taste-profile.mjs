@@ -1,142 +1,43 @@
-// Netlify Function: generate or read Alex's taste profile.
+// Netlify Function (sync, read-only): return the cached taste profile.
 //
 // GET /.netlify/functions/taste-profile
-//     Returns the cached profile if <30 days old. Otherwise regenerates.
+//     200 { profile, generated_at, n_albums, model } when a row exists.
+//     404 when nothing has been generated yet.
 //
-// GET /.netlify/functions/taste-profile?force=1
-//     Always regenerates and overwrites the cached row.
-//
-// Profile generation: gather every rated personal_ratings row for the user,
-// join in albums + spotify_features, send the lot to Claude Sonnet with a
-// strict-JSON schema prompt. The result is the structured taste profile
-// that downstream `recommend.mjs` calls consume.
+// Generation lives in `taste-profile-rebuild-background.mjs` because Claude
+// Sonnet over ~300 albums regularly takes 25–40s — well past the 10s
+// synchronous function ceiling. This file is the fast-path read.
 
 import {
   getEnv, jsonOk, jsonError,
   verifyHouseholdUser,
-  supabaseSelect, supabaseUpsert,
+  supabaseSelect,
 } from '../lib/spotify-shared.mjs';
-import { callClaude, parseClaudeJson, MODEL_SONNET } from '../lib/claude-shared.mjs';
-
-const STALE_DAYS = 30;
 
 export default async (req) => {
   const supaUrl = getEnv('SUPABASE_URL');
   const anonKey = getEnv('SUPABASE_ANON_KEY');
   const serviceKey = getEnv('SUPABASE_SERVICE_ROLE_KEY');
-  const apiKey = getEnv('ANTHROPIC_API_KEY');
   if (!supaUrl || !serviceKey) return jsonError(500, 'Supabase env vars missing.');
-  if (!apiKey) return jsonError(500, 'ANTHROPIC_API_KEY missing.');
 
   let userId;
-  try {
-    userId = await verifyHouseholdUser(req, supaUrl, anonKey, serviceKey);
-  } catch (e) {
-    return jsonError(401, e.message);
-  }
-
-  const url = new URL(req.url);
-  const force = url.searchParams.get('force') === '1';
+  try { userId = await verifyHouseholdUser(req, supaUrl, anonKey, serviceKey); }
+  catch (e) { return jsonError(401, e.message); }
 
   try {
-    // Cached fast path.
-    if (!force) {
-      const rows = await supabaseSelect(supaUrl, serviceKey, 'taste_profile',
-        `user_id=eq.${userId}&select=*`);
-      const row = rows?.[0];
-      if (row) {
-        const ageDays = (Date.now() - new Date(row.generated_at).getTime()) / 86400000;
-        if (ageDays < STALE_DAYS) {
-          return jsonOk({ profile: row.profile, generated_at: row.generated_at, n_albums: row.n_albums, model: row.model, cached: true });
-        }
-      }
-    }
-
-    // Gather rated personal listens with Spotify features.
-    // PostgREST embed: ratings → albums → spotify_features. We filter to
-    // rating IS NOT NULL because unrated rows carry no signal for taste.
-    const select = 'rating,notes,rated_at,album:albums(id,artist,album,year,spotify_features(danceability,energy,valence,acousticness,instrumentalness,tempo,loudness,key,genres))';
-    const filter = `user_id=eq.${userId}&rating=not.is.null&select=${encodeURIComponent(select)}&limit=2000`;
-    const ratings = await supabaseSelect(supaUrl, serviceKey, 'personal_ratings', filter);
-
-    if (!ratings?.length) {
-      return jsonError(400, 'No rated albums yet — log some albums first.');
-    }
-
-    const dataset = ratings.map(r => {
-      const a = r.album || {};
-      const f = a.spotify_features || {};
-      return {
-        artist: a.artist,
-        album: a.album,
-        year: a.year,
-        rating: r.rating,
-        notes: r.notes || undefined,
-        genres: f.genres || undefined,
-        danceability: f.danceability ?? undefined,
-        energy: f.energy ?? undefined,
-        valence: f.valence ?? undefined,
-        acousticness: f.acousticness ?? undefined,
-        instrumentalness: f.instrumentalness ?? undefined,
-        tempo: f.tempo ?? undefined,
-        loudness: f.loudness ?? undefined,
-        key: f.key ?? undefined,
-      };
+    const rows = await supabaseSelect(supaUrl, serviceKey, 'taste_profile',
+      `user_id=eq.${userId}&select=profile,generated_at,n_albums,model`);
+    const row = rows?.[0];
+    if (!row) return jsonError(404, 'No taste profile yet. POST to /taste-profile-rebuild-background to generate one.');
+    return jsonOk({
+      profile: row.profile,
+      generated_at: row.generated_at,
+      n_albums: row.n_albums,
+      model: row.model,
+      cached: true,
     });
-
-    const system = `You analyze music taste from solo listening data — NOT shared listening, NOT critic picks. Produce a structured JSON taste profile per the schema below.
-
-Schema (output JSON only, no markdown):
-{
-  "summary": "1-2 sentence plain-language portrait of this listener",
-  "dominant_genres": ["genre", ...],            // 4-7 max
-  "dominant_eras": ["2000s", "1990s", ...],     // up to 5
-  "contrarian_patterns": [                       // up to 4 patterns
-    { "pattern": "what's unusual", "evidence": ["Artist - Album (rating)", ...] }  // up to 4 examples per pattern
-  ],
-  "audio_feature_sweetspots": {
-    "high_rated_traits": "describe the audio-feature profile of 8+ rated albums",
-    "low_rated_traits": "describe the audio-feature profile of 1-3 rated albums"
-  },
-  "artist_arcs": [                               // up to 6 artists with multiple ratings
-    { "artist": "...", "summary": "ratings span / what they love or skip" }
-  ],
-  "blindspots": ["..."],                          // up to 6 genres/eras with <3 ratings worth exploring
-  "key_signals_for_recommender": ["..."]          // 4-6 bullets
-}
-
-Rules:
-- Contrarian = the listener disagreeing with broad critical consensus (a celebrated album rated 1-3, or an unfashionable / overlooked album rated 9-10). Treat these as the strongest signal, not noise. Cite specific evidence (artist + album + rating).
-- Keep every field tight; do not exceed the caps in comments above.
-- Don't restate raw counts. Extract insight.
-- Group artists by trajectory where multiple albums are rated (e.g. "loves the early albums, lukewarm on recent").
-- Output strictly the JSON above. No prose before or after. No code fence. No commentary.`;
-
-    const userMsg = `Listener's rated albums (${dataset.length} rows). Some rows have full Spotify audio features; some don't yet — use what's there.
-
-${JSON.stringify(dataset)}`;
-
-    const raw = await callClaude({ apiKey, system, user: userMsg, model: MODEL_SONNET, maxTokens: 8192 });
-    let profile;
-    try { profile = parseClaudeJson(raw); }
-    catch (e) {
-      // Log the full response so it shows up in Netlify function logs for diagnosis.
-      console.error('Profile JSON parse failed. Full response below:\n' + raw);
-      return jsonError(502, `Claude returned non-JSON (${e.message}). Check Netlify function logs.`);
-    }
-
-    const now = new Date().toISOString();
-    await supabaseUpsert(supaUrl, serviceKey, 'taste_profile', {
-      user_id: userId,
-      profile,
-      model: MODEL_SONNET,
-      n_albums: dataset.length,
-      generated_at: now,
-    }, 'user_id');
-
-    return jsonOk({ profile, generated_at: now, n_albums: dataset.length, model: MODEL_SONNET, cached: false });
   } catch (e) {
-    console.error('taste-profile error:', e);
+    console.error('taste-profile read error:', e);
     return jsonError(500, e.message || String(e));
   }
 };

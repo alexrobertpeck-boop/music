@@ -1268,7 +1268,14 @@ let tasteProfile = null;             // last-loaded profile {profile, generated_
 let tasteProfileLoading = false;
 let recsLoading = false;
 
-async function loadTasteProfile(force) {
+/* loadTasteProfile(rebuild)
+   - rebuild=false: just GET /taste-profile. 200 → render. 404 → show empty state.
+   - rebuild=true:  POST to taste-profile-rebuild-background (returns 202),
+                    then poll GET /taste-profile every 4s until generated_at
+                    changes (or first appears), up to 90s timeout. Polling
+                    shows an elapsed timer so the user knows something's
+                    happening. */
+async function loadTasteProfile(rebuild) {
   if (tasteProfileLoading) return;
   tasteProfileLoading = true;
 
@@ -1276,28 +1283,83 @@ async function loadTasteProfile(force) {
   const meta = $('#profile-meta');
   const btn = $('#profile-refresh-btn');
   btn.disabled = true;
-  body.innerHTML = force
-    ? `<div class="loading">Rebuilding your taste profile from ~335 albums… (10–20 seconds)</div>`
-    : `<div class="loading">Loading taste profile…</div>`;
-  meta.textContent = '';
 
   try {
     const headers = await authHeaders();
-    const qs = force ? '?force=1' : '';
-    const res = await fetch(`/.netlify/functions/taste-profile${qs}`, { headers });
-    const text = await res.text();
-    let data;
-    try { data = JSON.parse(text); } catch { throw new Error(text.slice(0, 300) || `${res.status}`); }
-    if (!res.ok) throw new Error(data.error || `${res.status}`);
 
-    tasteProfile = data;
-    renderTasteProfile(data);
+    if (!rebuild) {
+      const res = await fetch('/.netlify/functions/taste-profile', { headers });
+      if (res.status === 404) {
+        body.innerHTML = `<div class="empty">
+          <strong>No taste profile yet.</strong><br>
+          Click "Generate / refresh" to build one from your rated albums. Takes ~30 seconds.
+        </div>`;
+        meta.textContent = '';
+        tasteProfile = null;
+        return;
+      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `${res.status}`);
+      tasteProfile = data;
+      renderTasteProfile(data);
+      return;
+    }
+
+    // Rebuild path.
+    const baselineTs = tasteProfile?.generated_at || null;
+    const startedAt = Date.now();
+    body.innerHTML = `<div class="loading">Starting taste-profile rebuild…</div>`;
+    meta.textContent = '';
+
+    const kickRes = await fetch('/.netlify/functions/taste-profile-rebuild-background', {
+      method: 'POST', headers,
+    });
+    if (kickRes.status !== 202 && !kickRes.ok) {
+      // 202 is the happy path for background functions. Anything else = config issue.
+      const text = await kickRes.text();
+      throw new Error(`Kickoff failed (${kickRes.status}): ${text.slice(0, 200)}`);
+    }
+
+    // Poll every 4s up to 120s. We're looking for generated_at to change.
+    const POLL_INTERVAL = 4000;
+    const TIMEOUT_MS = 120_000;
+    let elapsed = 0;
+
+    while (elapsed < TIMEOUT_MS) {
+      body.innerHTML = `<div class="loading">
+        Building your taste profile from your rated albums…
+        <div style="font-size:12px;color:var(--muted);margin-top:6px;">
+          ${Math.floor((Date.now() - startedAt) / 1000)}s elapsed · Claude Sonnet usually takes 25–40s.
+        </div>
+      </div>`;
+      await new Promise(r => setTimeout(r, POLL_INTERVAL));
+      elapsed = Date.now() - startedAt;
+
+      const pollRes = await fetch('/.netlify/functions/taste-profile', { headers });
+      if (pollRes.status === 200) {
+        const pollData = await pollRes.json();
+        if (pollData.generated_at && pollData.generated_at !== baselineTs) {
+          tasteProfile = pollData;
+          renderTasteProfile(pollData);
+          return;
+        }
+      } else if (pollRes.status !== 404) {
+        // 404 is OK (no row yet). Other errors → bail.
+        const text = await pollRes.text();
+        throw new Error(`Poll failed (${pollRes.status}): ${text.slice(0, 200)}`);
+      }
+    }
+
+    body.innerHTML = `<div class="empty">
+      <strong>Taste profile didn't finish within 2 minutes.</strong><br>
+      Check Netlify → Logs → Functions → <code>taste-profile-rebuild-background</code> for the error.
+      You can also retry — the background function may still complete on its own.
+    </div>`;
   } catch (err) {
     console.error('Taste profile load failed:', err);
     body.innerHTML = `<div class="empty">
       <strong>Couldn't load taste profile.</strong><br>
-      ${escapeHtml(err.message)}<br><br>
-      If this is the first time, the function may still be deploying — try again in 30 seconds. Or hit "Generate / refresh".
+      ${escapeHtml(err.message)}
     </div>`;
   } finally {
     tasteProfileLoading = false;
