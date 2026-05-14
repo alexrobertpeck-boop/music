@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Reckoner Music</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%B5%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='3.5' fill='%23ff7a4a'/%3E%3Ccircle cx='16' cy='16' r='8' stroke='%23ff7a4a' stroke-width='1.8' fill='none' opacity='0.6'/%3E%3Ccircle cx='16' cy='16' r='13' stroke='%23ff7a4a' stroke-width='1.2' fill='none' opacity='0.3'/%3E%3C/svg%3E">
 
 <!-- Supabase JS client (UMD). Same version mlb-dashboard uses. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -78,9 +78,10 @@
   }
   header.site h1 {
     margin: 0; font-size: 18px;
-    display: flex; align-items: center; gap: 8px;
+    display: flex; align-items: center; gap: 10px;
+    letter-spacing: -0.01em;
   }
-  header.site h1 .leaf { color: var(--accent); }
+  header.site h1 .brand-mark { color: var(--accent); display: block; flex-shrink: 0; }
   .auth-area { display: flex; align-items: center; gap: 10px; }
   .auth-btn, .auth-logout-btn {
     background: var(--accent); color: #fff; border: 0; border-radius: 6px;
@@ -814,7 +815,14 @@
 
 <div class="topbar">
 <header class="site">
-  <h1 title="Reckoner — Radiohead, In Rainbows (2007)"><span class="leaf">🎵</span> Reckoner Music</h1>
+  <h1 title="Reckoner — Radiohead, In Rainbows (2007)">
+    <svg class="brand-mark" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+      <circle cx="12" cy="12" r="2.6" fill="currentColor"/>
+      <circle cx="12" cy="12" r="6.2" stroke="currentColor" stroke-width="1.4" fill="none" opacity="0.65"/>
+      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1" fill="none" opacity="0.35"/>
+    </svg>
+    Reckoner Music
+  </h1>
   <div class="auth-area" id="auth-area"></div>
 </header>
 
@@ -936,7 +944,7 @@
     <div class="section-head">
       <div>
         <h2>Vinyl</h2>
-        <div class="sub">Records you own + a wishlist. Independent from your listening / club / taste profile.</div>
+        <div class="sub">Records you own + a wishlist. Any album you rate 8/10 or higher auto-lands on your wishlist.</div>
       </div>
       <button class="add-btn" id="vinyl-add-btn">+ Add record</button>
     </div>
@@ -945,6 +953,7 @@
         <button data-vinyl-view="owned" class="active">Owned <span class="count" id="vinyl-count-owned"></span></button>
         <button data-vinyl-view="wishlist">Wishlist <span class="count" id="vinyl-count-wishlist"></span></button>
       </div>
+      <button type="button" class="secondary-btn" id="vinyl-backfill-btn" title="Adds any album you've rated 8+ to your wishlist (if it isn't already there).">Backfill from 8+ rated</button>
     </div>
     <div id="vinyl-list-container"><div class="loading">Loading…</div></div>
   </section>
@@ -1663,6 +1672,19 @@ async function handleAlbumSubmit(e) {
     const { error: rateErr } = await sb
       .from('personal_ratings')
       .upsert(upsertRow, { onConflict: 'album_id,user_id' });
+
+    // Auto-add to vinyl wishlist when rating crosses 8+ threshold. Best-effort:
+    // if the album is already on the wishlist or already owned, the unique
+    // constraint (user_id, album_id) rejects the insert and we silently move on.
+    if (!rateErr && rating != null && rating >= 8) {
+      const { error: vErr } = await sb.from('vinyl_records').insert({
+        user_id: currentUser.id,
+        album_id: resolvedAlbumId,
+        status: 'wishlist',
+        notes: `Auto-added: rated ${rating}/10`,
+      });
+      if (vErr && vErr.code !== '23505') console.warn('Auto-wishlist failed:', vErr.message);
+    }
 
     if (rateErr) {
       console.error('Rating upsert failed:', rateErr);
@@ -3582,6 +3604,63 @@ function wireVinylTab() {
   document.querySelectorAll('#vinyl-toggle button').forEach(b => {
     b.addEventListener('click', () => setVinylView(b.dataset.vinylView));
   });
+  $('#vinyl-backfill-btn').addEventListener('click', runVinylBackfill);
+}
+
+/* Backfill from 8+ rated personal listens: add any rated 8 or higher that
+   isn't already in vinyl_records to the wishlist. One-shot. Idempotent —
+   relies on the unique (user_id, album_id) constraint to skip duplicates. */
+async function runVinylBackfill() {
+  if (!currentUser) return;
+  const btn = $('#vinyl-backfill-btn');
+  if (!confirm("Add every album you've rated 8 or higher to your vinyl wishlist (skipping any already in your vinyl)?")) return;
+  btn.disabled = true;
+  const originalText = btn.textContent;
+  btn.textContent = 'Backfilling…';
+
+  try {
+    // 1) All albums rated 8+ by this user.
+    const { data: rated, error: rErr } = await sb
+      .from('personal_ratings')
+      .select('rating, album_id')
+      .eq('user_id', currentUser.id)
+      .gte('rating', 8);
+    if (rErr) throw new Error(rErr.message);
+
+    // 2) Already-tracked vinyl (owned OR wishlist) for this user.
+    const { data: existing, error: vErr } = await sb
+      .from('vinyl_records')
+      .select('album_id')
+      .eq('user_id', currentUser.id);
+    if (vErr) throw new Error(vErr.message);
+    const haveVinyl = new Set((existing || []).map(r => r.album_id));
+
+    const toAdd = (rated || []).filter(r => !haveVinyl.has(r.album_id));
+    if (toAdd.length === 0) {
+      alert("All your 8+ rated albums are already in your vinyl. Nothing to add.");
+      return;
+    }
+
+    const rows = toAdd.map(r => ({
+      user_id: currentUser.id,
+      album_id: r.album_id,
+      status: 'wishlist',
+      notes: `Auto-added: rated ${r.rating}/10`,
+    }));
+    const { error: insErr } = await sb.from('vinyl_records').insert(rows);
+    if (insErr) throw new Error(insErr.message);
+
+    vinylLoaded = false;
+    await loadVinyl();
+    setVinylView('wishlist');     // jump to the wishlist so the new entries are visible
+    alert(`Added ${toAdd.length} album${toAdd.length === 1 ? '' : 's'} to your wishlist.`);
+  } catch (err) {
+    console.error('Backfill failed:', err);
+    alert(`Couldn't backfill: ${err.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
 }
 
 /* ─── Wire club tab UI ────────────────────────────────────────────────────*/
