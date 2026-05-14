@@ -48,6 +48,22 @@
   a { color: var(--accent); }
   button { font: inherit; cursor: pointer; }
 
+  /* ─── footer ─── */
+  footer.site {
+    padding: 36px 22px 28px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    font-style: italic;
+    letter-spacing: 0.02em;
+  }
+  footer.site .quote::before { content: '“'; opacity: 0.45; }
+  footer.site .quote::after  { content: '”'; opacity: 0.45; }
+  footer.site .attr {
+    display: block; margin-top: 4px; font-style: normal; font-size: 11px;
+    opacity: 0.6;
+  }
+
   /* ─── header ─── */
   header.site {
     display: flex; align-items: center; justify-content: space-between;
@@ -780,7 +796,7 @@
 <body>
 
 <header class="site">
-  <h1><span class="leaf">🎵</span> Reckoner Music</h1>
+  <h1 title="Reckoner — Radiohead, In Rainbows (2007)"><span class="leaf">🎵</span> Reckoner Music</h1>
   <div class="auth-area" id="auth-area"></div>
 </header>
 
@@ -928,6 +944,11 @@
     </div>
   </section>
 </main>
+
+<footer class="site">
+  <span class="quote">Dedicated to all you human beings.</span>
+  <span class="attr">Reckoner · In Rainbows</span>
+</footer>
 
 <!-- ────── Auth modal ────── -->
 <div class="modal" id="auth-modal" hidden>
