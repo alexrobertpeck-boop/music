@@ -11,15 +11,31 @@
 
 <style>
   :root {
-    --bg: #faf8f3;
-    --surface: #fff;
-    --ink: #1f1d1a;
-    --muted: #6b6660;
-    --line: #e8e3da;
-    --accent: #b8431f;
-    --accent-soft: #efd9cf;
-    --good: #2f7a3a;
-    --warn: #b07315;
+    --bg: #0c0c10;
+    --surface: #17171d;
+    --surface-2: #21212a;
+    --surface-3: #2b2b35;
+    --ink: #ece9e3;
+    --ink-2: #c8c5bf;
+    --muted: #8e8b86;
+    --line: #2b2b34;
+    --line-bright: #3a3a44;
+    --accent: #ff7a4a;
+    --accent-soft: #3a201a;
+    --good: #6bd194;
+    --good-soft: #16301f;
+    --warn: #f5c462;
+    --warn-soft: #2e2515;
+    --err: #ff7a7a;
+    --err-soft: #3a1a1a;
+    --disabled: #3a3a42;
+  }
+  body {
+    background:
+      radial-gradient(1200px 700px at 80% -10%, rgba(255,122,74,0.07), transparent 60%),
+      radial-gradient(900px 500px at -5% 95%, rgba(107,209,148,0.04), transparent 60%),
+      var(--bg);
+    background-attachment: fixed;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
@@ -36,7 +52,9 @@
   header.site {
     display: flex; align-items: center; justify-content: space-between;
     padding: 14px 22px;
-    background: var(--surface);
+    background: rgba(23, 23, 29, 0.82);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--line);
     position: sticky; top: 0; z-index: 50;
   }
@@ -58,8 +76,11 @@
   nav.tabs {
     display: flex; gap: 4px;
     padding: 0 22px;
-    background: var(--surface);
+    background: rgba(23, 23, 29, 0.82);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--line);
+    position: sticky; top: 53px; z-index: 49;
   }
   nav.tabs button {
     background: transparent; border: 0;
@@ -70,7 +91,7 @@
   }
   nav.tabs button.active { color: var(--ink); border-bottom-color: var(--accent); }
   nav.tabs .future {
-    color: #c4beb4; cursor: not-allowed;
+    color: var(--disabled); cursor: not-allowed;
     font-style: italic;
   }
   nav.tabs .future::after { content: " · soon"; font-size: 11px; }
@@ -87,7 +108,7 @@
     background: var(--accent); color: #fff; border: 0; border-radius: 6px;
     padding: 9px 16px; font-weight: 500;
   }
-  .add-btn:disabled { background: #c8c2b8; cursor: not-allowed; }
+  .add-btn:disabled { background: var(--disabled); cursor: not-allowed; }
 
   .toolbar {
     display: flex; gap: 10px; flex-wrap: wrap;
@@ -104,25 +125,25 @@
     background: transparent; border: 1px solid var(--line); border-radius: 6px;
     color: var(--muted); padding: 8px 12px;
   }
-  .toolbar .secondary-btn:hover { color: var(--ink); border-color: #cfc8bc; }
+  .toolbar .secondary-btn:hover { color: var(--ink); border-color: var(--line-bright); }
 
   /* ─── import modal extras ─── */
   .import-summary { color: var(--muted); font-size: 14px; line-height: 1.5; margin-bottom: 14px; }
   .import-summary strong { color: var(--ink); font-weight: 600; }
   .progress-bar {
-    height: 8px; background: #f1ede5; border-radius: 999px; overflow: hidden;
+    height: 8px; background: var(--surface-2); border-radius: 999px; overflow: hidden;
     margin: 12px 0 6px;
   }
   .progress-bar .fill { height: 100%; background: var(--accent); transition: width 120ms linear; }
   .progress-label { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .import-log {
     max-height: 160px; overflow-y: auto;
-    background: #faf6ef; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px;
     padding: 8px 10px; font: 12px/1.5 ui-monospace, "SF Mono", Menlo, monospace;
     color: var(--muted); margin-top: 12px;
   }
   .import-log[hidden] { display: none; }
-  .import-log .err { color: #a3261a; }
+  .import-log .err { color: var(--err); }
   .import-log .ok { color: var(--good); }
 
   /* ─── confirm matches ─── */
@@ -140,12 +161,12 @@
   }
   .candidate {
     border: 1px solid var(--line); border-radius: 6px; padding: 8px; cursor: pointer;
-    background: #fff; text-align: left; font-family: inherit;
+    background: var(--surface-2); text-align: left; font-family: inherit; color: var(--ink);
   }
-  .candidate:hover { border-color: var(--accent); background: #fef9f7; }
+  .candidate:hover { border-color: var(--accent); background: var(--surface-2); }
   .candidate img {
     width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 4px;
-    background: #f1ede5; display: block;
+    background: var(--surface-2); display: block;
   }
   .candidate .name { font-size: 12px; line-height: 1.3; margin-top: 6px; }
   .candidate .name b { display: block; color: var(--ink); }
@@ -154,7 +175,7 @@
     margin-top: 10px; background: transparent; border: 1px solid var(--line);
     border-radius: 6px; color: var(--muted); padding: 6px 10px; font-size: 13px;
   }
-  .candidate-card .skip-btn:hover { color: var(--ink); border-color: #cfc8bc; }
+  .candidate-card .skip-btn:hover { color: var(--ink); border-color: var(--line-bright); }
   .overwrite-toggle {
     display: flex; align-items: center; gap: 6px;
     font-size: 12px; color: var(--muted); margin-top: 10px;
@@ -178,10 +199,10 @@
     background: var(--accent-soft); color: var(--accent);
     border-radius: 999px; font-size: 12px; font-weight: 500;
   }
-  .pill.muted { background: #f1ede5; color: var(--muted); }
+  .pill.muted { background: var(--surface-2); color: var(--muted); }
   .profile-field { margin-bottom: 14px; }
   .profile-field h4 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; }
-  .profile-summary { font-size: 17px; line-height: 1.5; margin-bottom: 18px; padding: 14px 16px; background: #faf6ef; border-left: 3px solid var(--accent); border-radius: 4px; }
+  .profile-summary { font-size: 17px; line-height: 1.5; margin-bottom: 18px; padding: 14px 16px; background: var(--surface-2); border-left: 3px solid var(--accent); border-radius: 4px; color: var(--ink); }
   .arc-item, .contrarian-item {
     border-left: 2px solid var(--line); padding: 4px 12px; margin-bottom: 8px;
     font-size: 14px;
@@ -219,10 +240,10 @@
     background: var(--accent); color: #fff; border: 0; border-radius: 6px;
     padding: 7px 12px; font-weight: 500; font-size: 13px;
   }
-  .add-list-btn[disabled] { background: #c8c2b8; cursor: default; }
+  .add-list-btn[disabled] { background: var(--disabled); cursor: default; }
   .add-list-btn.added {
     background: transparent; color: var(--good);
-    border: 1px solid #c2dec7;
+    border: 1px solid #2e4a36;
   }
   .add-list-btn.already-rated {
     background: transparent; color: var(--muted);
@@ -231,18 +252,18 @@
 
   .source-badge {
     display: inline-block; padding: 1px 6px;
-    background: #f1ede5; color: var(--muted);
+    background: var(--surface-2); color: var(--muted);
     border-radius: 999px; font-size: 11px; font-weight: 500;
     text-transform: uppercase; letter-spacing: 0.05em; margin-left: 6px;
     vertical-align: middle;
   }
   .source-badge.rec { background: var(--accent-soft); color: var(--accent); }
-  .source-badge.csv { background: #e9efe6; color: var(--good); }
+  .source-badge.csv { background: var(--good-soft); color: var(--good); }
   .source-meta {
     color: var(--muted); font-size: 12px; margin-top: 4px; font-style: italic;
   }
   .stale-banner {
-    background: #fff7e6; color: #7a5a13; border: 1px solid #f0d89a;
+    background: var(--warn-soft); color: var(--warn); border: 1px solid #5a4515;
     border-radius: 6px; padding: 8px 12px; font-size: 13px;
     margin-top: 10px; display: flex; align-items: center; gap: 10px;
   }
@@ -281,10 +302,10 @@
   }
   .hbar-row .hbar-label { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .hbar-row .hbar-track {
-    background: #f1ede5; height: 18px; border-radius: 4px; overflow: hidden;
+    background: var(--surface-2); height: 18px; border-radius: 4px; overflow: hidden;
   }
   .hbar-row .hbar-fill { background: var(--accent); height: 100%; }
-  .hbar-row .hbar-fill.muted { background: #c8c2b8; }
+  .hbar-row .hbar-fill.muted { background: var(--disabled); }
   .hbar-row .hbar-fill.cool { background: #5a6b88; }
   .hbar-row .hbar-count {
     text-align: right; color: var(--muted); font-variant-numeric: tabular-nums;
@@ -346,7 +367,7 @@
     align-items: center; gap: 10px; margin-bottom: 8px; font-size: 13px;
   }
   .audio-row .audio-track {
-    background: #f1ede5; height: 8px; border-radius: 999px; overflow: hidden;
+    background: var(--surface-2); height: 8px; border-radius: 999px; overflow: hidden;
     position: relative;
   }
   .audio-row .audio-fill {
@@ -360,7 +381,10 @@
     background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
     padding: 16px; cursor: pointer; transition: border-color 80ms;
   }
-  .club-card:hover { border-color: var(--accent); background: #fef9f7; }
+  .club-card:hover { border-color: var(--accent); background: var(--surface-2); }
+  .club-card-inner { display: flex; gap: 14px; align-items: stretch; }
+  .club-card-body { flex: 1; min-width: 0; }
+  .club-card .album-cover { width: 64px; height: 64px; font-size: 26px; }
   .club-card .head {
     display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
     margin-bottom: 8px;
@@ -380,7 +404,7 @@
     font-weight: 600; color: var(--accent);
     background: var(--accent-soft); padding: 1px 8px; border-radius: 999px;
   }
-  .club-card .ratings .val.empty { background: #f1ede5; color: var(--muted); }
+  .club-card .ratings .val.empty { background: var(--surface-2); color: var(--muted); }
 
   .club-detail .back-btn {
     background: transparent; border: 0; color: var(--muted); padding: 0;
@@ -416,7 +440,7 @@
     background: transparent; color: var(--muted);
     border: 1px solid var(--line);
   }
-  .club-detail .gen-btn:disabled { background: #c8c2b8; cursor: default; }
+  .club-detail .gen-btn:disabled { background: var(--disabled); cursor: default; }
 
   .members-grid {
     display: grid; gap: 18px;
@@ -438,7 +462,7 @@
     padding: 9px 11px; border: 1px solid var(--line); border-radius: 6px;
     background: var(--surface); min-height: 80px; resize: vertical;
   }
-  .member-col .field textarea[readonly] { background: #faf6ef; color: var(--ink); cursor: default; }
+  .member-col .field textarea[readonly] { background: var(--surface-2); color: var(--ink); cursor: default; }
   .member-col .field textarea:focus { outline: 2px solid var(--accent-soft); outline-offset: -1px; }
   .member-col .field .save-state {
     font-size: 11px; color: var(--muted); margin-top: 3px; height: 14px;
@@ -452,11 +476,99 @@
   }
   .member-col .empty-state { color: var(--muted); font-style: italic; font-size: 13px; }
 
+  /* Album cover thumbnails — used in headers, list cards, outliers. */
+  .album-cover {
+    border-radius: 6px; object-fit: cover; display: block;
+    flex-shrink: 0; background: var(--surface-2);
+  }
+  .album-cover.placeholder {
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(255,255,255,0.85); font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    letter-spacing: 0.02em;
+  }
+
+  /* Per-track collapsible cards inside Album Club detail. */
+  .track-list { display: grid; gap: 8px; }
+  .track-card {
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
+    overflow: hidden;
+  }
+  .track-card > summary {
+    cursor: pointer; list-style: none;
+    padding: 10px 14px; display: flex; align-items: center; gap: 10px;
+    user-select: none;
+  }
+  .track-card > summary::-webkit-details-marker { display: none; }
+  .track-card > summary::before {
+    content: '▸'; color: var(--muted); font-size: 11px; transition: transform 120ms;
+  }
+  .track-card[open] > summary::before { transform: rotate(90deg); }
+  .track-card .track-num { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 22px; }
+  .track-card .track-name { font-weight: 500; color: var(--ink); }
+  .track-card .track-body {
+    padding: 4px 14px 14px 14px; display: grid; gap: 14px;
+    border-top: 1px solid var(--line);
+  }
+  .track-field h4 {
+    margin: 0 0 6px; font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--muted); font-weight: 600;
+  }
+
+  /* Per-question discussion cards. */
+  .questions-list { display: grid; gap: 14px; }
+  .question-card {
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .question-card .question-text {
+    font-size: 14px; font-weight: 500; color: var(--ink); margin-bottom: 10px;
+    line-height: 1.45;
+  }
+
+  /* Per-member note grid (2-up by default, 1-up at narrow). */
+  .note-grid {
+    display: grid; gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+  .note-col label {
+    display: block; font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.04em; color: var(--muted); font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .note-col label .me-tag { font-size: 9px; color: var(--accent); margin-left: 4px; }
+  .note-col textarea {
+    width: 100%; font: inherit; font-size: 13px;
+    padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--surface); color: var(--ink); resize: vertical;
+  }
+  .note-col textarea:focus {
+    outline: 2px solid var(--accent-soft); outline-offset: -1px;
+    border-color: var(--accent);
+  }
+  .note-col .note-readonly {
+    font-size: 13px; line-height: 1.5; color: var(--ink-2);
+    background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
+    padding: 8px 10px; white-space: pre-wrap;
+  }
+  .note-col .note-empty {
+    font-size: 12px; color: var(--muted); font-style: italic;
+    padding: 8px 10px;
+  }
+  .note-col .save-state {
+    font-size: 11px; color: var(--muted); margin-top: 3px; height: 14px;
+  }
+
+  /* Section headers — slightly more breathing room in the dark layout. */
+  .club-detail .section { padding: 20px; }
+  .club-detail .section + .section { margin-top: 14px; }
+
   /* ─── album list ─── */
   .album-list { display: grid; gap: 8px; }
   .album-row {
     display: grid;
     grid-template-columns:
+      44px                   /* cover thumbnail (always reserved) */
       minmax(120px, 1.4fr)   /* artist */
       minmax(180px, 2.4fr)   /* album */
       56px                   /* year */
@@ -470,6 +582,8 @@
     border: 1px solid var(--line);
     border-radius: 8px;
   }
+  .album-row .cell-cover { display: flex; align-items: center; justify-content: center; }
+  .album-row .cell-cover .album-cover { width: 40px; height: 40px; font-size: 16px; border-radius: 4px; }
   .album-row .cell { min-width: 0; }
   .album-row .cell-artist { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .album-row .cell-album { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -486,19 +600,20 @@
   }
   @media (max-width: 720px) {
     .album-row {
-      grid-template-columns: 1fr 56px 44px 36px auto;
+      grid-template-columns: 40px 1fr 56px 44px 36px auto;
       grid-template-rows: auto auto;
     }
-    .album-row .cell-artist { grid-column: 1 / 2; grid-row: 1 / 2; }
+    .album-row .cell-cover { grid-column: 1 / 2; grid-row: 1 / 3; }
+    .album-row .cell-artist { grid-column: 2 / 3; grid-row: 1 / 2; }
     .album-row .cell-album {
-      grid-column: 1 / 2; grid-row: 2 / 3;
+      grid-column: 2 / 3; grid-row: 2 / 3;
       font-weight: 400; font-size: 13px; color: var(--muted);
     }
-    .album-row .cell-year { grid-column: 2 / 3; grid-row: 1 / 2; }
-    .album-row .cell-rating { grid-column: 3 / 4; grid-row: 1 / 2; }
-    .album-row .cell-spotify { grid-column: 4 / 5; grid-row: 1 / 2; }
-    .album-row .cell-actions { grid-column: 5 / 6; grid-row: 1 / 2; }
-    .album-row .cell-notes { grid-row: 3 / 4; }
+    .album-row .cell-year { grid-column: 3 / 4; grid-row: 1 / 2; }
+    .album-row .cell-rating { grid-column: 4 / 5; grid-row: 1 / 2; }
+    .album-row .cell-spotify { grid-column: 5 / 6; grid-row: 1 / 2; }
+    .album-row .cell-actions { grid-column: 6 / 7; grid-row: 1 / 2; }
+    .album-row .cell-notes { grid-column: 1 / -1; grid-row: 3 / 4; }
   }
   .rating-pill {
     display: inline-flex; align-items: center; justify-content: center;
@@ -506,21 +621,21 @@
     background: var(--accent-soft); color: var(--accent);
     font-variant-numeric: tabular-nums; font-weight: 600;
   }
-  .rating-pill.unrated { background: #f1ede5; color: var(--muted); font-weight: 400; }
+  .rating-pill.unrated { background: var(--surface-2); color: var(--muted); font-weight: 400; }
   .row-actions { display: flex; gap: 6px; align-items: center; }
   .row-actions button {
     background: transparent; border: 1px solid var(--line); border-radius: 6px;
     padding: 6px 10px; color: var(--muted); font-size: 13px;
   }
-  .row-actions button:hover { color: var(--ink); border-color: #cfc8bc; }
-  .row-actions .danger:hover { color: #a3261a; border-color: #e0bcb6; }
+  .row-actions button:hover { color: var(--ink); border-color: var(--line-bright); }
+  .row-actions .danger:hover { color: var(--err); border-color: #e0bcb6; }
   .spotify-link {
     display: inline-flex; align-items: center; justify-content: center;
     width: 30px; height: 30px; border-radius: 6px;
     color: #1db954; text-decoration: none;
     border: 1px solid var(--line);
   }
-  .spotify-link:hover { background: #f3fbf6; border-color: #c8e7d3; }
+  .spotify-link:hover { background: var(--good-soft); border-color: var(--good); }
   .spotify-link svg { width: 16px; height: 16px; display: block; }
 
   .empty {
@@ -544,11 +659,12 @@
   .modal-backdrop { position: absolute; inset: 0; background: rgba(20,18,15,0.45); }
   .modal-content {
     position: relative;
-    background: var(--surface); border-radius: 10px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
     padding: 24px;
     width: min(440px, calc(100vw - 32px));
-    box-shadow: 0 10px 40px rgba(0,0,0,0.18);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04) inset;
     max-height: calc(100vh - 32px); overflow-y: auto;
+    color: var(--ink);
   }
   .modal-content.wide { width: min(560px, calc(100vw - 32px)); }
   .modal-close {
@@ -560,7 +676,7 @@
   /* ─── auth modal specifics ─── */
   .auth-google-btn {
     width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px;
-    background: #fff; border: 1px solid #dadada; border-radius: 6px;
+    background: #fff; color: #1f1d1a; border: 0; border-radius: 6px;
     padding: 10px 14px; font-weight: 500;
   }
   .auth-google-btn svg { width: 18px; height: 18px; }
@@ -585,13 +701,13 @@
     background: var(--accent); color: #fff; border: 0; border-radius: 6px;
     padding: 10px 14px; font-weight: 500;
   }
-  .form .submit:disabled { background: #c8c2b8; cursor: not-allowed; }
+  .form .submit:disabled { background: var(--disabled); cursor: not-allowed; }
   .form-toggle { color: var(--muted); font-size: 13px; margin-top: 4px; }
   .form-toggle button { background: transparent; border: 0; color: var(--accent); padding: 0; }
   .form .message { padding: 8px 10px; border-radius: 6px; font-size: 13px; display: block; }
   .form .message[hidden] { display: none; }
-  .form .message.error { background: #fbe8e5; color: #8a2618; }
-  .form .message.info { background: #e9efe6; color: var(--good); }
+  .form .message.error { background: var(--err-soft); color: var(--err); }
+  .form .message.info { background: var(--good-soft); color: var(--good); }
 </style>
 </head>
 <body>
@@ -800,7 +916,7 @@
           style="flex:1; font: inherit; padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px;">
         <button type="button" class="secondary-btn" id="debug-album-run">Run debug</button>
       </div>
-      <pre id="debug-album-out" style="display:none; max-height: 320px; overflow:auto; background:#faf6ef; border:1px solid var(--line); border-radius:6px; padding:10px; font-size:11px; margin-top:10px; white-space: pre-wrap; word-break: break-all;"></pre>
+      <pre id="debug-album-out" style="display:none; max-height: 320px; overflow:auto; background:var(--surface-2); border:1px solid var(--line); border-radius:6px; padding:10px; font-size:11px; margin-top:10px; white-space: pre-wrap; word-break: break-all;"></pre>
     </details>
   </div>
 </div>
@@ -1091,7 +1207,7 @@ async function loadAlbums() {
      dad's rows into Alex's My Albums view, or vice versa. */
   const { data, error } = await sb
     .from('personal_ratings')
-    .select('rating, notes, rated_at, source, source_constraint, album:albums ( id, artist, album, year, match_status, spotify_album_id )')
+    .select('rating, notes, rated_at, source, source_constraint, album:albums ( id, artist, album, year, match_status, spotify_album_id, cover_url )')
     .eq('user_id', currentUser.id)
     .order('rated_at', { ascending: false })
     .limit(2000);
@@ -1109,6 +1225,7 @@ async function loadAlbums() {
     year: r.album.year,
     match_status: r.album.match_status,
     spotify_album_id: r.album.spotify_album_id || null,
+    cover_url: r.album.cover_url || null,
     rating: r.rating,
     notes: r.notes,
     rated_at: r.rated_at,
@@ -1205,7 +1322,10 @@ function rowHtml(r) {
     ? `<div class="cell cell-notes" title="${escapeHtml(r.notes)}">${escapeHtml(r.notes)}</div>`
     : '';
 
+  const coverCell = `<div class="cell cell-cover">${albumCoverHtml({ artist: r.artist, cover_url: r.cover_url }, 40)}</div>`;
+
   return `<div class="album-row" data-id="${escapeHtml(r.album_id)}">
+    ${coverCell}
     <div class="cell cell-artist" title="${escapeHtml(r.artist || '')}">${escapeHtml(r.artist || 'Unknown artist')}</div>
     <div class="cell cell-album" title="${escapeHtml(r.album || '')}">${escapeHtml(r.album || 'Untitled')}${badge}</div>
     <div class="cell cell-year">${year}</div>
@@ -1474,7 +1594,7 @@ async function openEnrichModal() {
   ]);
   if (catalogRes.error) {
     console.error('Enrich preflight failed:', catalogRes.error);
-    $('#enrich-summary').innerHTML = `<span style="color:#a3261a;">${escapeHtml(catalogRes.error.message)}</span>`;
+    $('#enrich-summary').innerHTML = `<span style="color:var(--err);">${escapeHtml(catalogRes.error.message)}</span>`;
     return;
   }
   const haveFeatures = new Set((featuresRes.data || []).map(f => f.album_id));
@@ -1872,7 +1992,7 @@ function renderTasteProfile(data) {
     sections.push(`<div class="profile-field">
       <h4>Audio feature sweet spots</h4>
       ${s.high_rated_traits ? `<div style="margin-bottom:6px;"><b style="color:var(--good);">High ratings ·</b> ${escapeHtml(s.high_rated_traits)}</div>` : ''}
-      ${s.low_rated_traits  ? `<div><b style="color:#a3261a;">Low ratings ·</b> ${escapeHtml(s.low_rated_traits)}</div>` : ''}
+      ${s.low_rated_traits  ? `<div><b style="color:var(--err);">Low ratings ·</b> ${escapeHtml(s.low_rated_traits)}</div>` : ''}
     </div>`);
   }
   if (Array.isArray(p.artist_arcs) && p.artist_arcs.length) {
@@ -2343,10 +2463,31 @@ function wireSummaryTab() {
 
 let clubSessionsLoaded = false;
 let clubSessionsLoading = false;
-let clubSessionsCache = [];                 // [{ id, album, status, research, questions, ratings: [...], notes: [...], picked_by, ... }]
+let clubSessionsCache = [];                 // [{ id, album, status, research, questions, tracks, ratings: [...], notes: [...] }]
 let clubHouseholdMembers = [];              // [{ user_id, display_name }]
 let currentClubSessionId = null;
 const noteSaveTimers = new Map();           // note key → setTimeout id (debounce)
+let clubTracksLoading = false;
+
+// Standard album-club discussion questions. We render textareas for each
+// per member, keyed by index — see CLUB_QUESTION_PREFIX below for the
+// club_notes.subkey scheme.
+const CLUB_QUESTIONS = [
+  "Had you heard this album in full before?",
+  "What did you know about it going in?",
+  "What was your favourite song from the album?",
+  "What was your least favourite?",
+  "What did you think of the songwriting?",
+  "Are there any standout lyrics?",
+  "Would you want to discover other albums by this artist?",
+  "What surprised you about the album?",
+  "How did your opinion of the album change the more you listened to it?",
+  "Is there a consistent theme throughout the album? If so, what is it?",
+  "If you could ask the artist anything, what would it be?",
+  "How does the album's title/artwork reflect the content?",
+  "If you could give the album a new title, what would it be?",
+];
+const CLUB_QUESTION_PREFIX = 'q';   // club_notes.subkey = 'q0' .. 'q12' for each answer
 
 async function loadClubSessions() {
   if (!currentUser || clubSessionsLoading) return;
@@ -2366,10 +2507,10 @@ async function loadClubSessions() {
     const { data, error } = await sb
       .from('club_sessions')
       .select(`
-        id, status, research, questions, picked_by, picked_at, created_at, updated_at,
-        album:albums ( id, artist, album, year, spotify_album_id ),
+        id, status, research, questions, tracks, picked_by, picked_at, created_at, updated_at,
+        album:albums ( id, artist, album, year, spotify_album_id, cover_url ),
         ratings:club_session_ratings ( session_id, user_id, rating, notes, rated_at ),
-        notes:club_notes ( id, user_id, note_type, body, created_at )
+        notes:club_notes ( id, user_id, note_type, subkey, body, created_at )
       `)
       .order('created_at', { ascending: false })
       .limit(200);
@@ -2415,19 +2556,24 @@ function renderClubList() {
     }).join('');
     const created = new Date(s.created_at).toLocaleDateString();
 
+    const cover = albumCoverHtml(a, 64);
     return `<div class="club-card" data-id="${escapeHtml(s.id)}">
-      <div class="head">
-        <span class="artist">${escapeHtml(a.artist || 'Unknown artist')}</span>
-        <span class="album">— ${escapeHtml(a.album || 'Untitled')}</span>
-        ${a.year ? `<span class="year">(${escapeHtml(String(a.year))})</span>` : ''}
+      <div class="club-card-inner">
+        ${cover}
+        <div class="club-card-body">
+          <div class="head">
+            <span class="artist">${escapeHtml(a.artist || 'Unknown artist')}</span>
+            <span class="album">— ${escapeHtml(a.album || 'Untitled')}</span>
+            ${a.year ? `<span class="year">(${escapeHtml(String(a.year))})</span>` : ''}
+          </div>
+          <div class="meta">
+            <span>Started ${escapeHtml(created)}</span>
+            <span class="${hasResearch ? 'ok' : ''}">${hasResearch ? '✓' : '○'} context</span>
+            <span>by ${escapeHtml(memberName(s.picked_by))}</span>
+          </div>
+          <div class="ratings">${ratingsHtml}</div>
+        </div>
       </div>
-      <div class="meta">
-        <span>Started ${escapeHtml(created)}</span>
-        <span class="${hasResearch ? 'ok' : ''}">${hasResearch ? '✓' : '○'} research</span>
-        <span class="${hasQuestions ? 'ok' : ''}">${hasQuestions ? '✓' : '○'} questions</span>
-        <span>by ${escapeHtml(memberName(s.picked_by))}</span>
-      </div>
-      <div class="ratings">${ratingsHtml}</div>
     </div>`;
   }).join('');
 
@@ -2542,11 +2688,23 @@ function renderClubDetail() {
   }
   const a = session.album || {};
   const research = session.research;
-  const questionsObj = session.questions;
-  const questions = Array.isArray(questionsObj?.questions) ? questionsObj.questions : [];
+  const tracksObj = session.tracks;
+  const tracks = Array.isArray(tracksObj?.tracks) ? tracksObj.tracks : [];
 
+  // Members fall back to just the current user if household_members is empty.
+  const members = clubHouseholdMembers.length
+    ? clubHouseholdMembers
+    : [{ user_id: currentUser.id, display_name: currentUser.email || 'You' }];
+
+  const noteOf = (uid, type, subkey = '') =>
+    (session.notes || []).find(n => n.user_id === uid && n.note_type === type && (n.subkey || '') === subkey);
+  const ratingOf = (uid) => (session.ratings || []).find(r => r.user_id === uid);
+
+  // ─── Album header ────
+  const cover = albumCoverHtml(a, 96);
   const headerHtml = `<div class="album-header">
-    <div style="flex:1;">
+    ${cover}
+    <div style="flex:1; min-width: 0;">
       <h2>${escapeHtml(a.artist || 'Unknown')} — ${escapeHtml(a.album || 'Untitled')}</h2>
       <div class="meta">
         ${a.year ? `Released ${escapeHtml(String(a.year))} · ` : ''}
@@ -2560,104 +2718,124 @@ function renderClubDetail() {
       </a>` : ''}
   </div>`;
 
-  const researchHtml = `<div class="section">
-    <h3>Research notes</h3>
-    <div class="sub">Quick background generated by Claude so you both arrive with shared context.</div>
+  // ─── Context (Claude research notes) ────
+  const contextHtml = `<div class="section">
+    <h3>Context</h3>
+    <div class="sub">A launchpad for your own research — release setting, band arc, cultural context. Not a review.</div>
     ${research?.text
       ? `<div class="research-prose">${escapeHtml(research.text)}</div>
          <div class="stamp">Generated ${new Date(research.generated_at).toLocaleString()} · ${escapeHtml(research.model || 'Haiku')}</div>
-         <button class="gen-btn regenerate" data-action="research">Regenerate</button>`
-      : `<button class="gen-btn" data-action="research">Generate research notes</button>`
+         <button class="gen-btn regenerate" data-action="research">Regenerate context</button>`
+      : `<button class="gen-btn" data-action="research">Generate context notes</button>`
     }
   </div>`;
 
-  const questionsHtml = `<div class="section questions">
-    <h3>Discussion questions</h3>
-    <div class="sub">Tailored to the album and both your taste histories. Write your responses in the Discussion notes below.</div>
-    ${questions.length
-      ? `<ol>${questions.map(q => `<li>${escapeHtml(q)}</li>`).join('')}</ol>
-         <div class="stamp">Generated ${new Date(questionsObj.generated_at).toLocaleString()} · ${escapeHtml(questionsObj.model || 'Sonnet')}</div>
-         <button class="gen-btn regenerate" data-action="questions">Regenerate</button>`
-      : `<button class="gen-btn" data-action="questions">Generate questions</button>`
+  // ─── My research notes (personal) ────
+  const myResearchHtml = `<div class="section">
+    <h3>My research</h3>
+    <div class="sub">Anything you dig up — articles you've read, interviews you've watched, things you want to remember about the album.</div>
+    ${twoColumnNoteFields({ members, currentUser, session, type: 'research', subkey: '', placeholder: 'Paste links, scribble notes, anything that adds to the album for you…', minHeight: 120 })}
+  </div>`;
+
+  // ─── Track list ────
+  const tracksHtml = `<div class="section">
+    <h3>Track-by-track</h3>
+    <div class="sub">Music and lyric notes per track.</div>
+    ${tracks.length
+      ? `<div class="track-list">
+          ${tracks.map((trackName, idx) => `
+            <details class="track-card" ${idx === 0 ? 'open' : ''}>
+              <summary>
+                <span class="track-num">${idx + 1}.</span>
+                <span class="track-name">${escapeHtml(trackName)}</span>
+              </summary>
+              <div class="track-body">
+                <div class="track-field">
+                  <h4>Music</h4>
+                  ${twoColumnNoteFields({ members, currentUser, session, type: 'listen', subkey: trackName, placeholder: 'Production, arrangement, performances, dynamics, anything music-side…', minHeight: 70 })}
+                </div>
+                <div class="track-field">
+                  <h4>Lyrics</h4>
+                  ${twoColumnNoteFields({ members, currentUser, session, type: 'lyric', subkey: trackName, placeholder: 'Words that struck you, themes you noticed, things to ask about…', minHeight: 70 })}
+                </div>
+              </div>
+            </details>
+          `).join('')}
+         </div>
+         <div class="stamp">Track list generated ${new Date(tracksObj.generated_at).toLocaleString()} · ${escapeHtml(tracksObj.source || 'claude')}</div>
+         <button class="gen-btn regenerate" data-action="tracks">Refresh track list</button>`
+      : `<button class="gen-btn" data-action="tracks">Fetch track list</button>`
     }
   </div>`;
 
-  // Each household member gets a column. Current user's column has editable
-  // textareas + rating; others are read-only.
-  const members = clubHouseholdMembers.length
-    ? clubHouseholdMembers
-    : [{ user_id: currentUser.id, display_name: currentUser.email || 'You' }];
+  // ─── Discussion questions (fixed 13) ────
+  const questionsHtml = `<div class="section">
+    <h3>Discussion</h3>
+    <div class="sub">Standard album-club questions. Write your answers; you'll see your dad's once he writes them.</div>
+    <div class="questions-list">
+      ${CLUB_QUESTIONS.map((q, idx) => {
+        const sk = CLUB_QUESTION_PREFIX + idx;
+        return `<div class="question-card">
+          <div class="question-text">${idx + 1}. ${escapeHtml(q)}</div>
+          ${twoColumnNoteFields({ members, currentUser, session, type: 'discussion', subkey: sk, placeholder: '', minHeight: 70 })}
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
 
-  const noteOf = (uid, type) => (session.notes || []).find(n => n.user_id === uid && n.note_type === type);
-  const ratingOf = (uid) => (session.ratings || []).find(r => r.user_id === uid);
+  // ─── Final rating + wrap-up (per member) ────
+  const ratingsHtml = `<div class="section">
+    <h3>Final rating</h3>
+    <div class="sub">Your 1–10 rating and a one-line wrap-up. Only counts toward the album club — never feeds your personal taste profile.</div>
+    <div class="members-grid">
+      ${members.map(m => {
+        const isMe = m.user_id === currentUser.id;
+        const rRow = ratingOf(m.user_id);
+        const rating = rRow?.rating ?? '';
+        const finalNote = rRow?.notes || '';
+        return `<div class="member-col" data-user-id="${escapeHtml(m.user_id)}">
+          <h3>${escapeHtml(m.display_name)}${isMe ? ' <span class="me-tag">you</span>' : ''}</h3>
+          ${isMe ? `
+            <div class="rating-row">
+              <select data-rating>
+                <option value="">— unrated —</option>
+                ${[1,2,3,4,5,6,7,8,9,10].map(n => `<option value="${n}" ${rating === n ? 'selected' : ''}>${n}</option>`).join('')}
+              </select>
+              <input type="text" data-rating-note maxlength="400" placeholder="One-line wrap-up (optional)" value="${escapeHtml(finalNote)}"
+                style="flex:1; font: inherit; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2); color: var(--ink);">
+            </div>
+            <div class="save-state" data-save="rating"></div>
+          ` : `
+            <div class="rating-row">
+              <span class="display">${rating !== '' ? rating : '—'}</span>
+              ${finalNote ? `<span style="color: var(--muted); font-size: 13px;">${escapeHtml(finalNote)}</span>` : ''}
+            </div>
+          `}
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
 
-  const memberColumns = members.map(m => {
-    const isMe = m.user_id === currentUser.id;
-    const listenNote = noteOf(m.user_id, 'listen')?.body || '';
-    const discussNote = noteOf(m.user_id, 'discussion')?.body || '';
-    const rRow = ratingOf(m.user_id);
-    const rating = rRow?.rating ?? '';
-    const finalNote = rRow?.notes || '';
+  content.innerHTML = `${headerHtml}${contextHtml}${myResearchHtml}${tracksHtml}${questionsHtml}${ratingsHtml}`;
 
-    const taLabel = isMe ? '' : ` (read-only)`;
-    const textareaAttrs = isMe ? '' : 'readonly';
-    const editableNotice = isMe ? '' : (listenNote || discussNote ? '' : '<div class="empty-state">Nothing yet.</div>');
-
-    return `<div class="member-col" data-user-id="${escapeHtml(m.user_id)}">
-      <h3>${escapeHtml(m.display_name)}${isMe ? ' <span class="me-tag">you</span>' : ''}</h3>
-
-      <div class="field">
-        <label>Listen notes${taLabel}</label>
-        <textarea ${textareaAttrs} data-note-type="listen" placeholder="${isMe ? 'First-impressions, what stood out, what you want to come back to…' : ''}">${escapeHtml(listenNote)}</textarea>
-        ${isMe ? '<div class="save-state" data-save="listen"></div>' : ''}
-      </div>
-
-      <div class="field">
-        <label>Discussion notes${taLabel}</label>
-        <textarea ${textareaAttrs} data-note-type="discussion" placeholder="${isMe ? 'Your responses to the questions, things to bring up when you discuss…' : ''}">${escapeHtml(discussNote)}</textarea>
-        ${isMe ? '<div class="save-state" data-save="discussion"></div>' : ''}
-      </div>
-
-      <div class="field">
-        <label>Final rating</label>
-        ${isMe ? `
-          <div class="rating-row">
-            <select data-rating>
-              <option value="">— unrated —</option>
-              ${[1,2,3,4,5,6,7,8,9,10].map(n => `<option value="${n}" ${rating === n ? 'selected' : ''}>${n}</option>`).join('')}
-            </select>
-            <input type="text" data-rating-note maxlength="400" placeholder="One-line wrap-up (optional)" value="${escapeHtml(finalNote)}"
-              style="flex:1; font: inherit; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface);">
-          </div>
-          <div class="save-state" data-save="rating"></div>
-        ` : `
-          <div class="rating-row">
-            <span class="display">${rating !== '' ? rating : '—'}</span>
-            ${finalNote ? `<span style="color: var(--muted); font-size: 13px;">${escapeHtml(finalNote)}</span>` : ''}
-          </div>
-        `}
-      </div>
-      ${editableNotice}
-    </div>`;
-  }).join('');
-
-  content.innerHTML = `${headerHtml}${researchHtml}${questionsHtml}
-    <div class="members-grid">${memberColumns}</div>`;
-
-  // Wire generate buttons.
+  // Wire generate buttons (context + tracks; questions are fixed now).
   content.querySelectorAll('.gen-btn[data-action]').forEach(btn => {
     btn.addEventListener('click', () => onClubGenerate(btn.dataset.action, btn));
   });
 
-  // Wire textarea + rating saves for the current user's column only.
-  const myCol = content.querySelector(`.member-col[data-user-id="${CSS.escape(currentUser.id)}"]`);
-  if (myCol) {
-    myCol.querySelectorAll('textarea[data-note-type]').forEach(ta => {
-      ta.addEventListener('input', () => queueNoteSave(currentClubSessionId, ta.dataset.noteType, ta.value, ta));
-      ta.addEventListener('blur', () => flushNoteSave(currentClubSessionId, ta.dataset.noteType));
-    });
-    const ratingSel = myCol.querySelector('[data-rating]');
-    const ratingNote = myCol.querySelector('[data-rating-note]');
+  // Wire every editable textarea (for the current user) — debounced auto-save.
+  content.querySelectorAll('textarea[data-note-type]:not([readonly])').forEach(ta => {
+    const type = ta.dataset.noteType;
+    const sub = ta.dataset.subkey || '';
+    ta.addEventListener('input', () => queueNoteSave(currentClubSessionId, type, sub, ta.value, ta));
+    ta.addEventListener('blur', () => flushNoteSave(currentClubSessionId, type, sub));
+  });
+
+  // Wire the rating widget (only the current user's column has it).
+  const myRatingCol = content.querySelector(`.member-col[data-user-id="${CSS.escape(currentUser.id)}"]`);
+  if (myRatingCol) {
+    const ratingSel = myRatingCol.querySelector('[data-rating]');
+    const ratingNote = myRatingCol.querySelector('[data-rating-note]');
     if (ratingSel) ratingSel.addEventListener('change', () => saveClubRating(ratingSel, ratingNote));
     if (ratingNote) {
       ratingNote.addEventListener('input', () => queueRatingSave(ratingSel, ratingNote));
@@ -2666,19 +2844,61 @@ function renderClubDetail() {
   }
 }
 
-/* ─── Research + questions generation ────────────────────────────────────*/
+/* Helper: render a 2-column (per-member) note field. The current user's
+   side is an editable textarea wired to auto-save; others are read-only
+   prose. Used for personal research, per-track music + lyric notes, and
+   per-question discussion answers. */
+function twoColumnNoteFields({ members, currentUser, session, type, subkey, placeholder, minHeight }) {
+  const noteOf = (uid) => (session.notes || []).find(n => n.user_id === uid && n.note_type === type && (n.subkey || '') === subkey);
+  return `<div class="note-grid">${members.map(m => {
+    const isMe = m.user_id === currentUser.id;
+    const body = noteOf(m.user_id)?.body || '';
+    if (isMe) {
+      return `<div class="note-col">
+        <label>${escapeHtml(m.display_name)} <span class="me-tag">you</span></label>
+        <textarea data-note-type="${escapeHtml(type)}" data-subkey="${escapeHtml(subkey)}"
+          placeholder="${escapeHtml(placeholder || '')}"
+          style="min-height: ${minHeight}px;">${escapeHtml(body)}</textarea>
+        <div class="save-state" data-save="${escapeHtml(type)}::${escapeHtml(subkey)}"></div>
+      </div>`;
+    }
+    return `<div class="note-col">
+      <label>${escapeHtml(m.display_name)}</label>
+      ${body
+        ? `<div class="note-readonly">${escapeHtml(body)}</div>`
+        : `<div class="note-empty">No notes yet.</div>`}
+    </div>`;
+  }).join('')}</div>`;
+}
+
+/* Helper: cover thumbnail. Uses cover_url if present; otherwise generates a
+   deterministic colored placeholder with the artist's first letter. */
+function albumCoverHtml(album, size = 64) {
+  if (album?.cover_url) {
+    return `<img class="album-cover" src="${escapeHtml(album.cover_url)}" alt="" width="${size}" height="${size}" loading="lazy">`;
+  }
+  const seed = (album?.artist || 'A').toLowerCase();
+  const hue = ((seed.charCodeAt(0) || 65) * 31 + (seed.charCodeAt(1) || 0) * 7) % 360;
+  const initial = (album?.artist || '?').charAt(0).toUpperCase();
+  return `<div class="album-cover placeholder" style="width:${size}px;height:${size}px;background:linear-gradient(135deg, hsl(${hue},45%,28%), hsl(${(hue+40)%360},55%,18%));font-size:${Math.round(size*0.45)}px;">${escapeHtml(initial)}</div>`;
+}
+
+/* ─── Generator dispatch (context / tracks) ──────────────────────────────*/
 
 async function onClubGenerate(action, btn) {
   if (!currentClubSessionId) return;
-  const endpoint = action === 'research'
-    ? '/.netlify/functions/club-research'
-    : '/.netlify/functions/club-questions';
+  const endpoints = {
+    research: { url: '/.netlify/functions/club-research', label: 'Generating context…' },
+    tracks:   { url: '/.netlify/functions/club-tracks',   label: 'Fetching track list…' },
+  };
+  const spec = endpoints[action];
+  if (!spec) return;
   const originalText = btn.textContent;
   btn.disabled = true;
-  btn.textContent = action === 'research' ? 'Generating…' : 'Generating questions…';
+  btn.textContent = spec.label;
   try {
     const headers = { ...(await authHeaders()), 'Content-Type': 'application/json' };
-    const res = await fetch(endpoint, {
+    const res = await fetch(spec.url, {
       method: 'POST', headers,
       body: JSON.stringify({ session_id: currentClubSessionId }),
     });
@@ -2687,7 +2907,7 @@ async function onClubGenerate(action, btn) {
     try { data = JSON.parse(text); } catch { throw new Error(text.slice(0, 300) || `${res.status}`); }
     if (!res.ok) throw new Error(data.error || `${res.status}`);
 
-    // Reload sessions so the cached copy has the new research/questions.
+    // Reload sessions so the cached copy has the new content.
     clubSessionsLoaded = false;
     await loadClubSessions();
     renderClubDetail();
@@ -2703,30 +2923,34 @@ async function onClubGenerate(action, btn) {
 
 const NOTE_DEBOUNCE_MS = 700;
 
-function noteKey(sessionId, type) { return `${sessionId}::${type}`; }
+function noteKey(sessionId, type, subkey) { return `${sessionId}::${type}::${subkey || ''}`; }
+function saveStateKey(type, subkey) { return `${type}::${subkey || ''}`; }
 
-function queueNoteSave(sessionId, noteType, body, sourceEl) {
-  const key = noteKey(sessionId, noteType);
-  const stateEl = sourceEl?.parentElement?.querySelector(`.save-state[data-save="${noteType}"]`);
+function queueNoteSave(sessionId, noteType, subkey, body, sourceEl) {
+  const key = noteKey(sessionId, noteType, subkey);
+  const stateEl = sourceEl?.parentElement?.querySelector(`.save-state[data-save="${CSS.escape(saveStateKey(noteType, subkey))}"]`)
+    || sourceEl?.parentElement?.querySelector('.save-state');
   if (stateEl) stateEl.textContent = 'Typing…';
   if (noteSaveTimers.has(key)) clearTimeout(noteSaveTimers.get(key));
-  noteSaveTimers.set(key, setTimeout(() => doNoteSave(sessionId, noteType, body, stateEl), NOTE_DEBOUNCE_MS));
+  noteSaveTimers.set(key, setTimeout(() => doNoteSave(sessionId, noteType, subkey, body, stateEl), NOTE_DEBOUNCE_MS));
 }
-function flushNoteSave(sessionId, noteType) {
-  const key = noteKey(sessionId, noteType);
+function flushNoteSave(sessionId, noteType, subkey) {
+  const key = noteKey(sessionId, noteType, subkey);
   if (!noteSaveTimers.has(key)) return;
   clearTimeout(noteSaveTimers.get(key));
   noteSaveTimers.delete(key);
-  // Find current textarea value + save immediately.
-  const ta = document.querySelector(`.member-col[data-user-id="${CSS.escape(currentUser.id)}"] textarea[data-note-type="${noteType}"]`);
+  const selector = `textarea[data-note-type="${CSS.escape(noteType)}"][data-subkey="${CSS.escape(subkey || '')}"]:not([readonly])`;
+  const ta = document.querySelector(selector);
   if (!ta) return;
-  const stateEl = ta.parentElement?.querySelector(`.save-state[data-save="${noteType}"]`);
-  doNoteSave(sessionId, noteType, ta.value, stateEl);
+  const stateEl = ta.parentElement?.querySelector(`.save-state[data-save="${CSS.escape(saveStateKey(noteType, subkey))}"]`)
+    || ta.parentElement?.querySelector('.save-state');
+  doNoteSave(sessionId, noteType, subkey, ta.value, stateEl);
 }
 
-async function doNoteSave(sessionId, noteType, body, stateEl) {
+async function doNoteSave(sessionId, noteType, subkey, body, stateEl) {
   if (!currentUser) return;
   if (stateEl) stateEl.textContent = 'Saving…';
+  const sk = subkey || '';
   try {
     const trimmed = (body || '').trim();
     if (trimmed === '') {
@@ -2735,16 +2959,18 @@ async function doNoteSave(sessionId, noteType, body, stateEl) {
         .delete()
         .eq('session_id', sessionId)
         .eq('user_id', currentUser.id)
-        .eq('note_type', noteType);
+        .eq('note_type', noteType)
+        .eq('subkey', sk);
     } else {
       await sb.from('club_notes')
         .upsert({
           session_id: sessionId,
           user_id: currentUser.id,
           note_type: noteType,
+          subkey: sk,
           body: trimmed,
           created_at: new Date().toISOString(),
-        }, { onConflict: 'session_id,user_id,note_type' });
+        }, { onConflict: 'session_id,user_id,note_type,subkey' });
     }
     if (stateEl) {
       stateEl.textContent = 'Saved · ' + new Date().toLocaleTimeString();
@@ -2753,9 +2979,11 @@ async function doNoteSave(sessionId, noteType, body, stateEl) {
     // Update local cache so re-renders show the new content.
     const sess = clubSessionsCache.find(s => s.id === sessionId);
     if (sess) {
-      sess.notes = (sess.notes || []).filter(n => !(n.user_id === currentUser.id && n.note_type === noteType));
-      if (body && body.trim()) {
-        sess.notes.push({ user_id: currentUser.id, note_type: noteType, body: body.trim() });
+      sess.notes = (sess.notes || []).filter(n => !(
+        n.user_id === currentUser.id && n.note_type === noteType && (n.subkey || '') === sk
+      ));
+      if (trimmed) {
+        sess.notes.push({ user_id: currentUser.id, note_type: noteType, subkey: sk, body: trimmed });
       }
     }
   } catch (err) {
@@ -2866,7 +3094,7 @@ async function openImportModal() {
     startBtn.disabled = false;
   } catch (err) {
     console.error('Import preflight failed:', err);
-    summary.innerHTML = `<span style="color:#a3261a;">${escapeHtml(err.message)}</span>`;
+    summary.innerHTML = `<span style="color:var(--err);">${escapeHtml(err.message)}</span>`;
     importParsed = null;
   }
 }

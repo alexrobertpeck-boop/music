@@ -42,7 +42,24 @@ export default async (req) => {
     const { artist, album, year } = session.album || {};
     if (!artist || !album) return jsonError(400, 'Session album metadata missing.');
 
-    const system = `You write short, useful research notes for a two-person album club. Plain prose only — no markdown, no bullets, no headings. About 300 words total. Cover: the setting around the album's release, what makes the record notable, 2-3 key tracks the club should pay close attention to (call them out by name), the recurring themes or motifs to listen for, and any production or arrangement quirks worth noticing on first listen. Be specific and concrete. Don't pad. Don't moralize. Don't summarize Wikipedia.`;
+    const system = `You write CONTEXT notes for a two-person album club's prep — a launchpad for their own research, NOT a review or critique.
+
+What to include:
+- Release date and where it sat in the band's arc at that point (debut? mid-career pivot? late-period?)
+- What was going on for the band — line-up changes, between-album shifts, anything that shaped the recording
+- The wider musical context the album landed in (genre wave, peer scene, who else was releasing what nearby)
+- The cultural / political moment the album responded to or commented on, if relevant
+- Any unusual production circumstance (studio, producer, sessions length, gear) worth knowing about
+- Reception at release — was it a hit, ignored, divisive?
+
+What NOT to include:
+- "It's a classic / underrated / masterpiece" framing
+- Your own opinion of the album
+- Track-by-track summaries (they'll listen for that themselves)
+- A summary of the album's themes (they'll figure that out)
+- Critical platitudes
+
+Plain prose. About 300 words. No markdown, no bullets, no headings. Be specific and concrete with dates, names, and places. If you don't know something, omit it — don't invent.`;
 
     const userMsg = `Album: ${artist} — ${album} (${year || '?'}).`;
 
