@@ -668,6 +668,19 @@
     <div class="progress-label" id="enrich-progress-label" hidden></div>
     <div class="import-log" id="enrich-log" hidden></div>
     <button type="button" class="submit" id="enrich-start-btn" style="margin-top:14px;" disabled>Start enrichment</button>
+
+    <details style="margin-top: 18px; border-top: 1px solid var(--line); padding-top: 12px;">
+      <summary style="cursor:pointer; color: var(--muted); font-size: 13px;">Debug a single album</summary>
+      <p style="font-size:12px; color: var(--muted); margin: 8px 0;">
+        Paste an album row UUID (from Supabase → albums table). Calls Spotify for that album and prints the raw response. No DB write.
+      </p>
+      <div style="display:flex; gap:8px; align-items: center;">
+        <input type="text" id="debug-album-id" placeholder="album row UUID"
+          style="flex:1; font: inherit; padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px;">
+        <button type="button" class="secondary-btn" id="debug-album-run">Run debug</button>
+      </div>
+      <pre id="debug-album-out" style="display:none; max-height: 320px; overflow:auto; background:#faf6ef; border:1px solid var(--line); border-radius:6px; padding:10px; font-size:11px; margin-top:10px; white-space: pre-wrap; word-break: break-all;"></pre>
+    </details>
   </div>
 </div>
 
@@ -1231,6 +1244,7 @@ function wireAlbumsTab() {
   $('#enrich-modal .modal-backdrop').addEventListener('click', closeEnrichModal);
   $('#enrich-modal-close').addEventListener('click', closeEnrichModal);
   $('#enrich-start-btn').addEventListener('click', onEnrichStartClick);
+  $('#debug-album-run').addEventListener('click', onDebugAlbumRun);
 
   $('#confirm-modal .modal-backdrop').addEventListener('click', closeConfirmModal);
   $('#confirm-modal-close').addEventListener('click', closeConfirmModal);
@@ -1248,6 +1262,24 @@ let enrichRunning = false;
 let enrichState = 'idle';   // 'idle' | 'running' | 'done'
 let pendingManual = [];     // [{ album_id, artist, album, year, candidates }]
 let enrichTargetIds = [];   // catalog rows we're processing this run
+
+async function onDebugAlbumRun() {
+  const id = $('#debug-album-id').value.trim();
+  const out = $('#debug-album-out');
+  if (!id) { out.style.display = 'block'; out.textContent = 'Enter an album UUID first.'; return; }
+  out.style.display = 'block';
+  out.textContent = 'Calling Spotify…';
+  try {
+    const headers = await authHeaders();
+    const res = await fetch(`/.netlify/functions/spotify-enrich?debug=${encodeURIComponent(id)}`, { headers });
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch { data = text; }
+    out.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+  } catch (err) {
+    out.textContent = `Error: ${err.message}`;
+  }
+}
 
 async function authHeaders() {
   const { data } = await sb.auth.getSession();
