@@ -161,6 +161,55 @@
   }
   .overwrite-toggle input { margin: 0; }
 
+  /* ─── recommendations tab ─── */
+  .panel {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 20px; margin-bottom: 18px;
+  }
+  .panel-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    flex-wrap: wrap; margin-bottom: 14px;
+  }
+  .panel-head h3 { margin: 0; font-size: 17px; }
+  .panel-head .meta { color: var(--muted); font-size: 12px; }
+  .pill-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 0; }
+  .pill {
+    display: inline-block; padding: 3px 9px;
+    background: var(--accent-soft); color: var(--accent);
+    border-radius: 999px; font-size: 12px; font-weight: 500;
+  }
+  .pill.muted { background: #f1ede5; color: var(--muted); }
+  .profile-field { margin-bottom: 14px; }
+  .profile-field h4 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; }
+  .profile-summary { font-size: 17px; line-height: 1.5; margin-bottom: 18px; padding: 14px 16px; background: #faf6ef; border-left: 3px solid var(--accent); border-radius: 4px; }
+  .arc-item, .contrarian-item {
+    border-left: 2px solid var(--line); padding: 4px 12px; margin-bottom: 8px;
+    font-size: 14px;
+  }
+  .contrarian-item .pattern { font-weight: 500; color: var(--ink); }
+  .contrarian-item .evidence { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .arc-item b { color: var(--ink); }
+  .arc-item span { color: var(--muted); }
+
+  .recs-results { display: grid; gap: 12px; }
+  .rec-card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 16px;
+  }
+  .rec-card .head {
+    display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  }
+  .rec-card .artist { font-weight: 600; font-size: 16px; }
+  .rec-card .album { color: var(--ink); font-size: 16px; }
+  .rec-card .year { color: var(--muted); font-size: 13px; }
+  .rec-card .reasoning { color: var(--ink); margin-top: 8px; line-height: 1.55; font-size: 14px; }
+  .rec-meta { font-size: 12px; color: var(--muted); margin-top: 12px; }
+  textarea#recs-constraint { width: 100%; min-height: 60px; }
+  .form-inline {
+    display: grid; gap: 10px;
+  }
+  .form-inline .submit { justify-self: start; }
+
   /* ─── album list ─── */
   .album-list { display: grid; gap: 8px; }
   .album-row {
@@ -275,7 +324,7 @@
 
 <nav class="tabs" id="tabs" hidden>
   <button data-tab="albums" class="active">My Albums</button>
-  <button class="future" disabled>Recommendations</button>
+  <button data-tab="recs">Recommendations</button>
   <button class="future" disabled>Album Club</button>
   <button class="future" disabled>Summary</button>
 </nav>
@@ -324,6 +373,39 @@
 
     <div id="album-list-container">
       <div class="loading">Loading…</div>
+    </div>
+  </section>
+
+  <!-- Recommendations tab -->
+  <section id="tab-recs" hidden>
+    <div class="section-head">
+      <div>
+        <h2>Recommendations</h2>
+        <div class="sub">Built from your personal album taste — your club picks never feed this.</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h3>Your taste profile</h3>
+          <div class="meta" id="profile-meta"></div>
+        </div>
+        <button type="button" class="secondary-btn" id="profile-refresh-btn">Generate / refresh</button>
+      </div>
+      <div id="profile-body"><div class="loading">Loading taste profile…</div></div>
+    </div>
+
+    <div class="panel">
+      <h3 style="margin: 0 0 10px;">Get recommendations</h3>
+      <div class="sub" style="color: var(--muted); font-size: 13px; margin-bottom: 12px;">
+        Each pick will cite a specific album you've rated. Already-heard albums (personal + club + previous recs) are excluded.
+      </div>
+      <form class="form-inline" id="recs-form">
+        <textarea id="recs-constraint" rows="2" maxlength="600" placeholder='What are you in the mood for? Examples: "rainy sunday", "70s I haven&apos;t heard yet", "expand my jazz horizons", or leave blank for surprise me.'></textarea>
+        <button type="submit" class="submit" id="recs-submit">Generate 5 recommendations</button>
+      </form>
+      <div id="recs-results" class="recs-results" style="margin-top: 18px;"></div>
     </div>
   </section>
 </main>
@@ -598,15 +680,36 @@ function onUserResolved(user) {
   if (user) {
     show($('#tabs'));
     hide($('#gate'));
-    show($('#tab-albums'));
+    switchTab('albums');
     loadAlbums();
   } else {
     hide($('#tabs'));
     show($('#gate'));
     hide($('#tab-albums'));
+    hide($('#tab-recs'));
     albumsCache = [];
     albumsLoaded = false;
+    tasteProfile = null;
   }
+}
+
+/* ─── tab switcher ────────────────────────────────────────────────────────*/
+function switchTab(tabId) {
+  const tabs = ['albums', 'recs'];
+  for (const t of tabs) {
+    const btn = document.querySelector(`#tabs button[data-tab="${t}"]`);
+    const sec = $(`#tab-${t}`);
+    if (!btn || !sec) continue;
+    if (t === tabId) { btn.classList.add('active'); show(sec); }
+    else { btn.classList.remove('active'); hide(sec); }
+  }
+  if (tabId === 'recs' && tasteProfile === null) loadTasteProfile(false);
+}
+
+function wireTabs() {
+  document.querySelectorAll('#tabs button[data-tab]').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
 }
 
 /* ─── albums: load ────────────────────────────────────────────────────────*/
@@ -1159,6 +1262,175 @@ function onCandidateSkip(idx) {
   renderConfirmList();
 }
 
+/* ─── recommendations tab ─────────────────────────────────────────────────*/
+
+let tasteProfile = null;             // last-loaded profile {profile, generated_at, n_albums, ...}
+let tasteProfileLoading = false;
+let recsLoading = false;
+
+async function loadTasteProfile(force) {
+  if (tasteProfileLoading) return;
+  tasteProfileLoading = true;
+
+  const body = $('#profile-body');
+  const meta = $('#profile-meta');
+  const btn = $('#profile-refresh-btn');
+  btn.disabled = true;
+  body.innerHTML = force
+    ? `<div class="loading">Rebuilding your taste profile from ~335 albums… (10–20 seconds)</div>`
+    : `<div class="loading">Loading taste profile…</div>`;
+  meta.textContent = '';
+
+  try {
+    const headers = await authHeaders();
+    const qs = force ? '?force=1' : '';
+    const res = await fetch(`/.netlify/functions/taste-profile${qs}`, { headers });
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch { throw new Error(text.slice(0, 300) || `${res.status}`); }
+    if (!res.ok) throw new Error(data.error || `${res.status}`);
+
+    tasteProfile = data;
+    renderTasteProfile(data);
+  } catch (err) {
+    console.error('Taste profile load failed:', err);
+    body.innerHTML = `<div class="empty">
+      <strong>Couldn't load taste profile.</strong><br>
+      ${escapeHtml(err.message)}<br><br>
+      If this is the first time, the function may still be deploying — try again in 30 seconds. Or hit "Generate / refresh".
+    </div>`;
+  } finally {
+    tasteProfileLoading = false;
+    btn.disabled = false;
+  }
+}
+
+function renderTasteProfile(data) {
+  const p = data?.profile;
+  const body = $('#profile-body');
+  const meta = $('#profile-meta');
+  if (!p) { body.innerHTML = `<div class="empty">No profile data.</div>`; return; }
+
+  const ageLabel = data.generated_at
+    ? `Generated ${new Date(data.generated_at).toLocaleString()} · ${data.n_albums || '?'} albums · ${data.cached ? 'cached' : 'fresh'}`
+    : '';
+  meta.textContent = ageLabel;
+
+  const sections = [];
+  if (p.summary) sections.push(`<div class="profile-summary">${escapeHtml(p.summary)}</div>`);
+
+  if (Array.isArray(p.dominant_genres) && p.dominant_genres.length) {
+    sections.push(`<div class="profile-field">
+      <h4>Dominant genres</h4>
+      <div class="pill-row">${p.dominant_genres.map(g => `<span class="pill">${escapeHtml(g)}</span>`).join('')}</div>
+    </div>`);
+  }
+  if (Array.isArray(p.dominant_eras) && p.dominant_eras.length) {
+    sections.push(`<div class="profile-field">
+      <h4>Dominant eras</h4>
+      <div class="pill-row">${p.dominant_eras.map(g => `<span class="pill">${escapeHtml(g)}</span>`).join('')}</div>
+    </div>`);
+  }
+  if (Array.isArray(p.contrarian_patterns) && p.contrarian_patterns.length) {
+    sections.push(`<div class="profile-field">
+      <h4>Contrarian patterns</h4>
+      ${p.contrarian_patterns.map(c => `<div class="contrarian-item">
+        <div class="pattern">${escapeHtml(c.pattern || '')}</div>
+        ${Array.isArray(c.evidence) && c.evidence.length
+          ? `<div class="evidence">${c.evidence.map(escapeHtml).join(' · ')}</div>` : ''}
+      </div>`).join('')}
+    </div>`);
+  }
+  if (p.audio_feature_sweetspots) {
+    const s = p.audio_feature_sweetspots;
+    sections.push(`<div class="profile-field">
+      <h4>Audio feature sweet spots</h4>
+      ${s.high_rated_traits ? `<div style="margin-bottom:6px;"><b style="color:var(--good);">High ratings ·</b> ${escapeHtml(s.high_rated_traits)}</div>` : ''}
+      ${s.low_rated_traits  ? `<div><b style="color:#a3261a;">Low ratings ·</b> ${escapeHtml(s.low_rated_traits)}</div>` : ''}
+    </div>`);
+  }
+  if (Array.isArray(p.artist_arcs) && p.artist_arcs.length) {
+    sections.push(`<div class="profile-field">
+      <h4>Artist arcs</h4>
+      ${p.artist_arcs.map(a => `<div class="arc-item">
+        <b>${escapeHtml(a.artist || '')}</b> · <span>${escapeHtml(a.summary || '')}</span>
+      </div>`).join('')}
+    </div>`);
+  }
+  if (Array.isArray(p.blindspots) && p.blindspots.length) {
+    sections.push(`<div class="profile-field">
+      <h4>Blind spots worth exploring</h4>
+      <div class="pill-row">${p.blindspots.map(g => `<span class="pill muted">${escapeHtml(g)}</span>`).join('')}</div>
+    </div>`);
+  }
+
+  body.innerHTML = sections.join('') || `<div class="empty">Profile was empty.</div>`;
+}
+
+async function onRecsSubmit(e) {
+  e.preventDefault();
+  if (recsLoading) return;
+  if (!tasteProfile) {
+    alert('Generate your taste profile first (top of this page).');
+    return;
+  }
+  recsLoading = true;
+  const btn = $('#recs-submit');
+  const results = $('#recs-results');
+  btn.disabled = true; btn.textContent = 'Generating…';
+  results.innerHTML = `<div class="loading">Asking Claude for picks tied to your taste…</div>`;
+
+  const constraint = $('#recs-constraint').value.trim();
+  try {
+    const headers = { ...(await authHeaders()), 'Content-Type': 'application/json' };
+    const res = await fetch('/.netlify/functions/recommend', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ constraint }),
+    });
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch { throw new Error(text.slice(0, 300) || `${res.status}`); }
+    if (!res.ok) throw new Error(data.error || `${res.status}`);
+
+    renderRecs(data);
+  } catch (err) {
+    console.error('Recommend failed:', err);
+    results.innerHTML = `<div class="empty"><strong>Couldn't get recommendations.</strong><br>${escapeHtml(err.message)}</div>`;
+  } finally {
+    recsLoading = false;
+    btn.disabled = false; btn.textContent = 'Generate 5 recommendations';
+  }
+}
+
+function renderRecs(data) {
+  const results = $('#recs-results');
+  const recs = data?.recs || [];
+  if (!recs.length) {
+    results.innerHTML = `<div class="empty">No recommendations returned. Try a different constraint or refresh your taste profile.</div>`;
+    return;
+  }
+  const cards = recs.map(r => `
+    <div class="rec-card">
+      <div class="head">
+        <span class="artist">${escapeHtml(r.artist || '')}</span>
+        <span class="album">— ${escapeHtml(r.album || '')}</span>
+        ${r.year ? `<span class="year">(${escapeHtml(String(r.year))})</span>` : ''}
+      </div>
+      <div class="reasoning">${escapeHtml(r.reasoning || '')}</div>
+    </div>
+  `).join('');
+  const meta = data.n_excluded
+    ? `<div class="rec-meta">${data.n_excluded} albums excluded (already heard or previously recommended).</div>`
+    : '';
+  results.innerHTML = cards + meta;
+}
+
+function wireRecsTab() {
+  $('#profile-refresh-btn').addEventListener('click', () => loadTasteProfile(true));
+  $('#recs-form').addEventListener('submit', onRecsSubmit);
+}
+
 /* ─── CSV import ───────────────────────────────────────────────────────────
    Pulls /Albums.csv (served as a static file by Netlify), parses it, and
    writes catalog + personal_ratings rows for the current user. Runs
@@ -1388,7 +1660,9 @@ async function runImport() {
 
 /* ─── init ────────────────────────────────────────────────────────────────*/
 wireAuthModal();
+wireTabs();
 wireAlbumsTab();
+wireRecsTab();
 
 </script>
 </body>
