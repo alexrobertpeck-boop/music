@@ -149,9 +149,14 @@ User's constraint: ${constraint || '(none — surprise them)'}`;
       if (filtered.length >= REC_COUNT) break;
     }
 
-    // 5) Persist this round so future calls exclude it.
+    // 5) Persist this round so future calls exclude it. Generate the UUID
+    // server-side so we can return it to the client — the client needs the
+    // id to set source_rec_id when the user adds one of the picks to their
+    // "to listen" list.
     const created = new Date().toISOString();
+    const recId = crypto.randomUUID();
     await supabaseUpsert(supaUrl, serviceKey, 'recommendations', {
+      id: recId,
       user_id: userId,
       constraint_text: constraint || null,
       recs: filtered,
@@ -160,6 +165,7 @@ User's constraint: ${constraint || '(none — surprise them)'}`;
     });
 
     return jsonOk({
+      rec_id: recId,
       recs: filtered,
       constraint,
       taste_profile_generated_at: profileRow.generated_at,

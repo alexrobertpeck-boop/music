@@ -210,6 +210,43 @@
   }
   .form-inline .submit { justify-self: start; }
 
+  /* ─── Add-to-list button on rec cards + provenance ─── */
+  .rec-card .add-row {
+    display: flex; align-items: center; gap: 10px;
+    margin-top: 12px;
+  }
+  .add-list-btn {
+    background: var(--accent); color: #fff; border: 0; border-radius: 6px;
+    padding: 7px 12px; font-weight: 500; font-size: 13px;
+  }
+  .add-list-btn[disabled] { background: #c8c2b8; cursor: default; }
+  .add-list-btn.added {
+    background: transparent; color: var(--good);
+    border: 1px solid #c2dec7;
+  }
+  .add-list-btn.already-rated {
+    background: transparent; color: var(--muted);
+    border: 1px solid var(--line);
+  }
+
+  .source-badge {
+    display: inline-block; padding: 1px 6px;
+    background: #f1ede5; color: var(--muted);
+    border-radius: 999px; font-size: 11px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.05em; margin-left: 6px;
+    vertical-align: middle;
+  }
+  .source-badge.rec { background: var(--accent-soft); color: var(--accent); }
+  .source-badge.csv { background: #e9efe6; color: var(--good); }
+  .source-meta {
+    color: var(--muted); font-size: 12px; margin-top: 4px; font-style: italic;
+  }
+  .stale-banner {
+    background: #fff7e6; color: #7a5a13; border: 1px solid #f0d89a;
+    border-radius: 6px; padding: 8px 12px; font-size: 13px;
+    margin-top: 10px; display: flex; align-items: center; gap: 10px;
+  }
+
   /* ─── album list ─── */
   .album-list { display: grid; gap: 8px; }
   .album-row {
@@ -360,6 +397,7 @@
       <select id="album-rating-filter">
         <option value="">All ratings</option>
         <option value="unrated">Unrated only</option>
+        <option value="queued-rec">Queued from recs</option>
         <option value="9-10">9–10 (loved)</option>
         <option value="7-8">7–8</option>
         <option value="5-6">5–6</option>
@@ -723,7 +761,7 @@ async function loadAlbums() {
      dad's rows into Alex's My Albums view, or vice versa. */
   const { data, error } = await sb
     .from('personal_ratings')
-    .select('rating, notes, rated_at, album:albums ( id, artist, album, year, match_status )')
+    .select('rating, notes, rated_at, source, source_constraint, album:albums ( id, artist, album, year, match_status )')
     .eq('user_id', currentUser.id)
     .order('rated_at', { ascending: false })
     .limit(2000);
@@ -743,6 +781,8 @@ async function loadAlbums() {
     rating: r.rating,
     notes: r.notes,
     rated_at: r.rated_at,
+    source: r.source || 'manual',
+    source_constraint: r.source_constraint || null,
   }));
   albumsLoaded = true;
   renderAlbumList();
@@ -766,8 +806,11 @@ function renderAlbumList() {
     );
   }
   if (ratingFilter) {
-    if (ratingFilter === 'unrated') rows = rows.filter(r => r.rating == null);
-    else {
+    if (ratingFilter === 'unrated') {
+      rows = rows.filter(r => r.rating == null);
+    } else if (ratingFilter === 'queued-rec') {
+      rows = rows.filter(r => r.rating == null && r.source === 'rec');
+    } else {
       const [lo, hi] = ratingFilter.split('-').map(Number);
       rows = rows.filter(r => r.rating != null && r.rating >= lo && r.rating <= hi);
     }
@@ -813,9 +856,18 @@ function rowHtml(r) {
   const notes = r.notes
     ? `<div class="notes-preview" title="${escapeHtml(r.notes)}">${escapeHtml(r.notes)}</div>`
     : '';
+  // Source badge — quietly tags the row with where it came from. Only shown
+  // for non-manual sources to keep the default state uncluttered.
+  let badge = '';
+  if (r.source === 'rec') {
+    const tip = r.source_constraint ? `Recommended for: ${r.source_constraint}` : 'Came from a Claude recommendation';
+    badge = `<span class="source-badge rec" title="${escapeHtml(tip)}">REC</span>`;
+  } else if (r.source === 'csv') {
+    badge = `<span class="source-badge csv" title="Imported from your CSV backlog">CSV</span>`;
+  }
   return `<div class="album-row" data-id="${escapeHtml(r.album_id)}">
     <div class="meta">
-      <div><span class="artist">${escapeHtml(r.artist || 'Unknown artist')}</span> — <span class="album">${escapeHtml(r.album || 'Untitled')}</span>${yr}</div>
+      <div><span class="artist">${escapeHtml(r.artist || 'Unknown artist')}</span> — <span class="album">${escapeHtml(r.album || 'Untitled')}</span>${yr}${badge}</div>
       ${notes}
     </div>
     ${rating}
@@ -936,16 +988,24 @@ async function handleAlbumSubmit(e) {
     }
 
     /* Upsert the personal_ratings row for the current user. Same album_id +
-       user_id PK → upsert handles both create-rating and edit-rating cases. */
+       user_id PK → upsert handles both create-rating and edit-rating cases.
+       Note: we don't set `source` on upsert — if a row already exists we want
+       to preserve its original provenance ('csv' or 'rec'). The default
+       column value ('manual') applies only when a new row is created. */
+    const upsertRow = {
+      album_id: resolvedAlbumId,
+      user_id: currentUser.id,
+      rating,
+      notes,
+      rated_at: new Date().toISOString(),
+    };
+    if (!albumId) {
+      // Brand-new entry from this user → explicitly tag source.
+      upsertRow.source = 'manual';
+    }
     const { error: rateErr } = await sb
       .from('personal_ratings')
-      .upsert({
-        album_id: resolvedAlbumId,
-        user_id: currentUser.id,
-        rating,
-        notes,
-        rated_at: new Date().toISOString(),
-      }, { onConflict: 'album_id,user_id' });
+      .upsert(upsertRow, { onConflict: 'album_id,user_id' });
 
     if (rateErr) {
       console.error('Rating upsert failed:', rateErr);
@@ -1302,6 +1362,25 @@ async function loadTasteProfile(rebuild) {
       if (!res.ok) throw new Error(data.error || `${res.status}`);
       tasteProfile = data;
       renderTasteProfile(data);
+
+      // Staleness check: count rated personal listens added since this
+      // profile was built. ≥10 triggers an auto-rebuild; below that we
+      // just show the count so Alex can decide. After a rebuild the count
+      // resets naturally because generated_at advances.
+      const STALE_THRESHOLD = 10;
+      const { count } = await sb
+        .from('personal_ratings')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', currentUser.id)
+        .not('rating', 'is', null)
+        .gt('rated_at', data.generated_at);
+      if (count != null) {
+        renderProfileStaleness(count, STALE_THRESHOLD);
+        if (count >= STALE_THRESHOLD) {
+          tasteProfileLoading = false;          // release the lock before recursing
+          return loadTasteProfile(true);
+        }
+      }
       return;
     }
 
@@ -1365,6 +1444,20 @@ async function loadTasteProfile(rebuild) {
     tasteProfileLoading = false;
     btn.disabled = false;
   }
+}
+
+function renderProfileStaleness(newCount, threshold) {
+  // Adds a small banner under the body when there are new ratings the
+  // current profile didn't see. If the threshold is reached we'll be
+  // auto-rebuilding right after, so make the banner explanatory.
+  const body = $('#profile-body');
+  if (!body || newCount <= 0) return;
+  const banner = document.createElement('div');
+  banner.className = 'stale-banner';
+  banner.innerHTML = newCount >= threshold
+    ? `🔄 ${newCount} new rating${newCount === 1 ? '' : 's'} since this profile was generated — rebuilding now…`
+    : `${newCount} new rating${newCount === 1 ? '' : 's'} since this profile was generated. Auto-refresh fires at ${threshold}.`;
+  body.prepend(banner);
 }
 
 function renderTasteProfile(data) {
@@ -1472,20 +1565,123 @@ function renderRecs(data) {
     results.innerHTML = `<div class="empty">No recommendations returned. Try a different constraint or refresh your taste profile.</div>`;
     return;
   }
-  const cards = recs.map(r => `
-    <div class="rec-card">
+  // Stash rec_id + constraint per session so the "Add to list" button can
+  // tag the resulting personal_ratings row with provenance.
+  const recId = data.rec_id || '';
+  const constraint = data.constraint || '';
+
+  const cards = recs.map((r, idx) => `
+    <div class="rec-card" data-idx="${idx}">
       <div class="head">
         <span class="artist">${escapeHtml(r.artist || '')}</span>
         <span class="album">— ${escapeHtml(r.album || '')}</span>
         ${r.year ? `<span class="year">(${escapeHtml(String(r.year))})</span>` : ''}
       </div>
       <div class="reasoning">${escapeHtml(r.reasoning || '')}</div>
+      <div class="add-row">
+        <button class="add-list-btn" data-add-rec data-idx="${idx}"
+          data-rec-id="${escapeHtml(recId)}"
+          data-constraint="${escapeHtml(constraint)}"
+          data-artist="${escapeHtml(r.artist || '')}"
+          data-album="${escapeHtml(r.album || '')}"
+          data-year="${r.year ?? ''}">+ Add to my list</button>
+      </div>
     </div>
   `).join('');
   const meta = data.n_excluded
     ? `<div class="rec-meta">${data.n_excluded} albums excluded (already heard or previously recommended).</div>`
     : '';
   results.innerHTML = cards + meta;
+
+  results.querySelectorAll('[data-add-rec]').forEach(btn => {
+    btn.addEventListener('click', () => onAddRecToList(btn));
+  });
+}
+
+async function onAddRecToList(btn) {
+  if (!currentUser) return;
+  const artist = btn.dataset.artist;
+  const album = btn.dataset.album;
+  const yearRaw = btn.dataset.year;
+  const recId = btn.dataset.recId || null;
+  const constraint = btn.dataset.constraint || null;
+  const year = yearRaw ? Number(yearRaw) : null;
+  if (!artist || !album) return;
+
+  btn.disabled = true;
+  const prevText = btn.textContent;
+  btn.textContent = 'Adding…';
+
+  try {
+    // 1) Resolve catalog row (insert or fetch existing).
+    let albumId = null;
+    const { data: ins, error: insErr } = await sb
+      .from('albums')
+      .insert({ artist, album, year, added_by: currentUser.id, match_status: 'pending' })
+      .select('id')
+      .single();
+    if (insErr) {
+      if (insErr.code === '23505') {
+        const { data: existing } = await sb
+          .from('albums')
+          .select('id')
+          .ilike('artist', artist)
+          .ilike('album', album)
+          .limit(1)
+          .maybeSingle();
+        if (!existing) throw new Error('Album exists but lookup failed.');
+        albumId = existing.id;
+      } else {
+        throw new Error(insErr.message);
+      }
+    } else {
+      albumId = ins.id;
+    }
+
+    // 2) Check whether the user already has a personal_ratings row for it.
+    const { data: existingRating } = await sb
+      .from('personal_ratings')
+      .select('rating')
+      .eq('album_id', albumId)
+      .eq('user_id', currentUser.id)
+      .maybeSingle();
+
+    if (existingRating) {
+      // Already known. Don't overwrite source/provenance silently.
+      if (existingRating.rating != null) {
+        btn.textContent = `✓ You've rated this (${existingRating.rating})`;
+        btn.classList.add('already-rated');
+      } else {
+        btn.textContent = '✓ Already on your list';
+        btn.classList.add('added');
+      }
+      return;
+    }
+
+    // 3) Insert the unrated queue entry with full provenance.
+    const { error: rateErr } = await sb
+      .from('personal_ratings')
+      .insert({
+        album_id: albumId,
+        user_id: currentUser.id,
+        rating: null,
+        notes: null,
+        source: 'rec',
+        source_rec_id: recId,
+        source_constraint: constraint,
+        rated_at: new Date().toISOString(),
+      });
+    if (rateErr) throw new Error(rateErr.message);
+
+    btn.textContent = '✓ On your list';
+    btn.classList.add('added');
+    albumsLoaded = false;  // force a fresh My Albums load next time it's opened
+  } catch (err) {
+    console.error('Add to list failed:', err);
+    btn.disabled = false;
+    btn.textContent = prevText;
+    alert(`Couldn't add: ${err.message}`);
+  }
 }
 
 function wireRecsTab() {
@@ -1696,6 +1892,7 @@ async function runImport() {
           user_id: currentUser.id,
           rating: r.rating,
           notes: null,
+          source: 'csv',
           rated_at: nowIso,
         }, { onConflict: 'album_id,user_id' });
 
