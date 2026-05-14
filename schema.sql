@@ -17,12 +17,11 @@ create table if not exists public.household_members (
   created_at   timestamptz not null default now()
 );
 alter table public.household_members enable row level security;
-drop policy if exists "members can read household" on public.household_members;
-create policy "members can read household"
-  on public.household_members for select
-  using (exists (select 1 from public.household_members hm where hm.user_id = auth.uid()));
 
--- Helper used by every household-scoped RLS policy.
+-- Helper used by every household-scoped RLS policy — INCLUDING the one on
+-- household_members itself. SECURITY DEFINER means the inner query bypasses
+-- RLS, breaking what would otherwise be infinite recursion (policy → exists
+-- → policy → ...).
 create or replace function public.is_household_member()
 returns boolean
 language sql
@@ -32,6 +31,11 @@ set search_path = public
 as $$
   select exists (select 1 from public.household_members where user_id = auth.uid());
 $$;
+
+drop policy if exists "members can read household" on public.household_members;
+create policy "members can read household"
+  on public.household_members for select
+  using (public.is_household_member());
 
 -- ─── albums (shared catalog) ────────────────────────────────────────────────
 -- One row per unique album. Carries no review data — that lives in
