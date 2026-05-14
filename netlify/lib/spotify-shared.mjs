@@ -46,7 +46,7 @@ export async function getSpotifyToken() {
   return cachedToken;
 }
 
-export async function spotifyFetch(path, params = {}) {
+export async function spotifyFetch(path, params = {}, retryCount = 0) {
   const token = await getSpotifyToken();
   const url = new URL(`${SPOTIFY_API}${path}`);
   for (const [k, v] of Object.entries(params)) {
@@ -56,12 +56,16 @@ export async function spotifyFetch(path, params = {}) {
     headers: { 'Authorization': `Bearer ${token}` },
   });
   if (res.status === 429) {
-    // Honor Retry-After if present (Spotify returns it in seconds). Cap at
-    // 5s so a single retry doesn't blow Netlify's 10s sync-function budget;
-    // if Spotify wants longer the caller should re-batch later.
+    // Bounded retry — after one wait+retry, surface the error rather than
+    // looping until Netlify's 10s ceiling kills us. The caller's batch loop
+    // will see the failure and can defer the album for a later run.
+    if (retryCount >= 1) {
+      const retryAfter = res.headers.get('Retry-After') || 'unknown';
+      throw new Error(`Spotify rate-limited (429) after retry; Retry-After=${retryAfter}s. The app may be in a per-app cooldown.`);
+    }
     const retry = Number(res.headers.get('Retry-After') || 1);
-    await new Promise(r => setTimeout(r, Math.min(retry, 5) * 1000));
-    return spotifyFetch(path, params);
+    await new Promise(r => setTimeout(r, Math.min(retry, 3) * 1000));
+    return spotifyFetch(path, params, retryCount + 1);
   }
   if (!res.ok) {
     const text = await res.text();
