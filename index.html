@@ -350,9 +350,13 @@
     padding: 6px 0; font-size: 14px; line-height: 1.4;
     border-bottom: 1px dashed var(--line);
     display: grid;
-    grid-template-columns: minmax(80px, 1.2fr) minmax(120px, 2fr) 48px 22px;
+    grid-template-columns: minmax(80px, 1.2fr) minmax(120px, 2fr) 48px 24px 24px;
     gap: 8px; align-items: center;
   }
+  .outliers-col li .vinyl-buy-link {
+    width: 22px; height: 22px; border-radius: 4px;
+  }
+  .outliers-col li .vinyl-buy-link svg { width: 12px; height: 12px; }
   .outliers-col li:last-child { border-bottom: 0; }
   .outliers-col .artist {
     font-weight: 600; color: var(--ink);
@@ -657,6 +661,7 @@
       56px                   /* year */
       44px                   /* rating pill */
       36px                   /* spotify icon (always reserved) */
+      36px                   /* vinyl buy icon (reserved when applicable) */
       auto;                  /* edit + delete actions */
     gap: 12px;
     align-items: center;
@@ -665,6 +670,7 @@
     border: 1px solid var(--line);
     border-radius: 8px;
   }
+  .album-row .cell-vinyl { display: flex; justify-content: center; }
   .album-row .cell-cover { display: flex; align-items: center; justify-content: center; }
   .album-row .cell-cover .album-cover { width: 40px; height: 40px; font-size: 16px; border-radius: 4px; }
   .album-row .cell { min-width: 0; }
@@ -683,7 +689,7 @@
   }
   @media (max-width: 720px) {
     .album-row {
-      grid-template-columns: 40px 1fr 56px 44px 36px auto;
+      grid-template-columns: 40px 1fr 56px 44px 36px 36px auto;
       grid-template-rows: auto auto;
     }
     .album-row .cell-cover { grid-column: 1 / 2; grid-row: 1 / 3; }
@@ -695,7 +701,8 @@
     .album-row .cell-year { grid-column: 3 / 4; grid-row: 1 / 2; }
     .album-row .cell-rating { grid-column: 4 / 5; grid-row: 1 / 2; }
     .album-row .cell-spotify { grid-column: 5 / 6; grid-row: 1 / 2; }
-    .album-row .cell-actions { grid-column: 6 / 7; grid-row: 1 / 2; }
+    .album-row .cell-vinyl { grid-column: 6 / 7; grid-row: 1 / 2; }
+    .album-row .cell-actions { grid-column: 7 / 8; grid-row: 1 / 2; }
     .album-row .cell-notes { grid-column: 1 / -1; grid-row: 3 / 4; }
   }
   .rating-pill {
@@ -719,6 +726,18 @@
     border: 1px solid var(--line);
   }
   .spotify-link:hover { background: var(--good-soft); border-color: var(--good); }
+
+  .vinyl-buy-link {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border-radius: 6px;
+    color: var(--ink-2); text-decoration: none;
+    border: 1px solid var(--line); background: transparent;
+    transition: 80ms;
+  }
+  .vinyl-buy-link:hover {
+    color: var(--accent); border-color: var(--accent); background: var(--accent-soft);
+  }
+  .vinyl-buy-link svg { width: 16px; height: 16px; display: block; }
   .spotify-link svg { width: 16px; height: 16px; display: block; }
 
   .empty {
@@ -1198,6 +1217,7 @@ function disableScroll(on) { document.body.style.overflow = on ? 'hidden' : ''; 
 let currentUser = null;            // {id, email} or null
 let albumsCache = [];              // joined rows: {album_id, artist, album, year, rating, notes, rated_at, match_status}
 let albumsLoaded = false;
+let userOwnedVinyl = new Set();    // album_ids the user owns on vinyl — drives the "buy on vinyl" button visibility
 
 /* ─── auth area + modal ────────────────────────────────────────────────────*/
 let authMode = 'login';
@@ -1324,6 +1344,9 @@ function onUserResolved(user) {
     hide($('#gate'));
     switchTab('albums');
     loadAlbums();
+    // Load the owned-vinyl set in the background; once it arrives, re-render
+    // My Albums so the buy-on-vinyl button appears on the right rows.
+    loadOwnedVinylSet().then(() => { if (albumsLoaded) renderAlbumList(); });
   } else {
     hide($('#tabs'));
     show($('#gate'));
@@ -1341,6 +1364,7 @@ function onUserResolved(user) {
     clubHouseholdMembers = [];
     vinylLoaded = false;
     vinylCache = [];
+    userOwnedVinyl = new Set();
   }
 }
 
@@ -1493,6 +1517,7 @@ function rowHtml(r) {
     : '';
 
   const coverCell = `<div class="cell cell-cover">${albumCoverHtml({ artist: r.artist, cover_url: r.cover_url }, 40)}</div>`;
+  const vinylCell = `<div class="cell cell-vinyl">${vinylBuyButtonHtml({ id: r.album_id, artist: r.artist, album: r.album })}</div>`;
 
   return `<div class="album-row" data-id="${escapeHtml(r.album_id)}">
     ${coverCell}
@@ -1501,6 +1526,7 @@ function rowHtml(r) {
     <div class="cell cell-year">${year}</div>
     <div class="cell cell-rating">${ratingHtml}</div>
     <div class="cell cell-spotify">${spotifyCell}</div>
+    ${vinylCell}
     <div class="cell cell-actions row-actions">
       <button data-action="edit" data-id="${escapeHtml(r.album_id)}">Edit</button>
       <button class="danger" data-action="delete" data-id="${escapeHtml(r.album_id)}">Delete</button>
@@ -2246,6 +2272,7 @@ function renderRecs(data) {
           data-artist="${escapeHtml(r.artist || '')}"
           data-album="${escapeHtml(r.album || '')}"
           data-year="${r.year ?? ''}">+ Add to my list</button>
+        ${vinylBuyButtonHtml({ artist: r.artist, album: r.album })}
       </div>
     </div>
   `).join('');
@@ -2365,7 +2392,7 @@ async function loadSummary() {
   container.innerHTML = `<div class="loading">Crunching numbers…</div>`;
 
   try {
-    const select = 'rating,rated_at,source,album:albums(artist,album,year,spotify_album_id,spotify_features(danceability,energy,valence,acousticness,instrumentalness,tempo,loudness,genres))';
+    const select = 'rating,rated_at,source,album:albums(id,artist,album,year,spotify_album_id,spotify_features(danceability,energy,valence,acousticness,instrumentalness,tempo,loudness,genres))';
     const { data, error } = await sb
       .from('personal_ratings')
       .select(select)
@@ -2409,9 +2436,9 @@ function renderSummary(rows) {
 
   // Outliers — the 10s and 1s, including artist/album for display
   const tensList = rated.filter(r => r.rating === 10)
-    .map(r => ({ artist: r.album?.artist, album: r.album?.album, year: r.album?.year, spotify_album_id: r.album?.spotify_album_id }));
+    .map(r => ({ id: r.album?.id, artist: r.album?.artist, album: r.album?.album, year: r.album?.year, spotify_album_id: r.album?.spotify_album_id }));
   const onesList = rated.filter(r => r.rating === 1)
-    .map(r => ({ artist: r.album?.artist, album: r.album?.album, year: r.album?.year, spotify_album_id: r.album?.spotify_album_id }));
+    .map(r => ({ id: r.album?.id, artist: r.album?.artist, album: r.album?.album, year: r.album?.year, spotify_album_id: r.album?.spotify_album_id }));
 
   // Decade breakdown — only albums with a year
   const decadeCounts = new Map();
@@ -2521,6 +2548,7 @@ function renderSummary(rows) {
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.59 14.41a.625.625 0 01-.86.21c-2.35-1.44-5.31-1.76-8.79-.97a.625.625 0 11-.28-1.22c3.81-.87 7.09-.5 9.72 1.12.3.18.39.57.21.86zm1.22-2.71a.78.78 0 01-1.07.26c-2.69-1.65-6.79-2.13-9.97-1.16a.78.78 0 11-.46-1.49c3.63-1.11 8.16-.58 11.24 1.32.37.23.49.71.26 1.07zm.11-2.83c-3.23-1.92-8.55-2.09-11.63-1.16a.94.94 0 11-.55-1.8c3.54-1.07 9.43-.87 13.13 1.33a.94.94 0 11-.95 1.63z"/></svg>
             </a>`
           : ''}</span>
+        <span>${vinylBuyButtonHtml(a)}</span>
       </li>`).join('')}</ul>`
     : `<div class="empty" style="padding: 14px;">${emptyLabel}</div>`;
 
@@ -2882,10 +2910,13 @@ function renderClubDetail() {
         · Started ${new Date(session.created_at).toLocaleDateString()}
       </div>
     </div>
-    ${a.spotify_album_id ? `
-      <a class="spotify-link" href="spotify:album:${encodeURIComponent(a.spotify_album_id)}" target="_blank" rel="noopener" title="Open in Spotify">
-        <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.59 14.41a.625.625 0 01-.86.21c-2.35-1.44-5.31-1.76-8.79-.97a.625.625 0 11-.28-1.22c3.81-.87 7.09-.5 9.72 1.12.3.18.39.57.21.86zm1.22-2.71a.78.78 0 01-1.07.26c-2.69-1.65-6.79-2.13-9.97-1.16a.78.78 0 11-.46-1.49c3.63-1.11 8.16-.58 11.24 1.32.37.23.49.71.26 1.07zm.11-2.83c-3.23-1.92-8.55-2.09-11.63-1.16a.94.94 0 11-.55-1.8c3.54-1.07 9.43-.87 13.13 1.33a.94.94 0 11-.95 1.63z"/></svg>
-      </a>` : ''}
+    <div style="display: flex; gap: 6px; align-items: center;">
+      ${a.spotify_album_id ? `
+        <a class="spotify-link" href="spotify:album:${encodeURIComponent(a.spotify_album_id)}" target="_blank" rel="noopener" title="Open in Spotify">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.59 14.41a.625.625 0 01-.86.21c-2.35-1.44-5.31-1.76-8.79-.97a.625.625 0 11-.28-1.22c3.81-.87 7.09-.5 9.72 1.12.3.18.39.57.21.86zm1.22-2.71a.78.78 0 01-1.07.26c-2.69-1.65-6.79-2.13-9.97-1.16a.78.78 0 11-.46-1.49c3.63-1.11 8.16-.58 11.24 1.32.37.23.49.71.26 1.07zm.11-2.83c-3.23-1.92-8.55-2.09-11.63-1.16a.94.94 0 11-.55-1.8c3.54-1.07 9.43-.87 13.13 1.33a.94.94 0 11-.95 1.63z"/></svg>
+        </a>` : ''}
+      ${vinylBuyButtonHtml({ id: a.id, artist: a.artist, album: a.album })}
+    </div>
   </div>`;
 
   // ─── Context (Claude research notes) ────
@@ -3045,6 +3076,36 @@ function twoColumnNoteFields({ members, currentUser, session, type, subkey, plac
         : `<div class="note-empty">No notes yet.</div>`}
     </div>`;
   }).join('')}</div>`;
+}
+
+/* Helper: returns the "buy on vinyl" link (or empty string if the user
+   already owns this album on vinyl). Points to a Discogs search filtered
+   to vinyl pressings — Discogs is the canonical marketplace for that.
+   Pass either an album row (with .id, .artist, .album) or shape-equivalent
+   bare fields { id, artist, album }. */
+function vinylBuyButtonHtml(album) {
+  if (!album?.artist || !album?.album) return '';
+  if (album.id && userOwnedVinyl.has(album.id)) return '';
+  const q = `${album.artist} ${album.album}`.trim();
+  const url = `https://www.discogs.com/search?type=release&format_exact=Vinyl&q=${encodeURIComponent(q)}`;
+  return `<a class="vinyl-buy-link" href="${url}" target="_blank" rel="noopener" title="Find on vinyl (Discogs)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+      <circle cx="12" cy="12" r="9"/>
+      <circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none"/>
+      <circle cx="12" cy="12" r="1.1" fill="var(--surface)" stroke="none"/>
+    </svg>
+  </a>`;
+}
+
+async function loadOwnedVinylSet() {
+  if (!currentUser) { userOwnedVinyl = new Set(); return; }
+  const { data, error } = await sb
+    .from('vinyl_records')
+    .select('album_id')
+    .eq('user_id', currentUser.id)
+    .eq('status', 'owned');
+  if (error) { console.warn('Owned-vinyl set load failed:', error.message); return; }
+  userOwnedVinyl = new Set((data || []).map(r => r.album_id));
 }
 
 /* Helper: cover thumbnail. Uses cover_url if present; otherwise generates a
@@ -3467,6 +3528,8 @@ async function handleVinylSubmit(e) {
     closeVinylModal();
     vinylLoaded = false;
     await loadVinyl();
+    await loadOwnedVinylSet();
+    if (albumsLoaded) renderAlbumList();  // refresh My Albums so the buy button updates
   } catch (err) {
     console.error('Vinyl save failed:', err);
     setVinylMessage(err.message);
@@ -3490,6 +3553,8 @@ async function onVinylAction(action, id, to) {
     if (error) { alert(`Couldn't move: ${error.message}`); return; }
     vinylLoaded = false;
     await loadVinyl();
+    await loadOwnedVinylSet();
+    if (albumsLoaded) renderAlbumList();
     return;
   }
 
@@ -3503,6 +3568,8 @@ async function onVinylAction(action, id, to) {
     if (error) { alert(`Couldn't delete: ${error.message}`); return; }
     vinylLoaded = false;
     await loadVinyl();
+    await loadOwnedVinylSet();
+    if (albumsLoaded) renderAlbumList();
     return;
   }
 }
