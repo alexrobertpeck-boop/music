@@ -89,40 +89,40 @@ export default async (req) => {
 Schema (output JSON only, no markdown):
 {
   "summary": "1-2 sentence plain-language portrait of this listener",
-  "dominant_genres": ["genre", ...],
-  "dominant_eras": ["2000s", "1990s", ...],
-  "contrarian_patterns": [
-    { "pattern": "what's unusual", "evidence": ["Artist - Album (rating)", ...] }
+  "dominant_genres": ["genre", ...],            // 4-7 max
+  "dominant_eras": ["2000s", "1990s", ...],     // up to 5
+  "contrarian_patterns": [                       // up to 4 patterns
+    { "pattern": "what's unusual", "evidence": ["Artist - Album (rating)", ...] }  // up to 4 examples per pattern
   ],
   "audio_feature_sweetspots": {
     "high_rated_traits": "describe the audio-feature profile of 8+ rated albums",
     "low_rated_traits": "describe the audio-feature profile of 1-3 rated albums"
   },
-  "artist_arcs": [
+  "artist_arcs": [                               // up to 6 artists with multiple ratings
     { "artist": "...", "summary": "ratings span / what they love or skip" }
   ],
-  "blindspots": ["genres/eras with <3 ratings the listener might want to explore"],
-  "key_signals_for_recommender": [
-    "concise bullets a downstream recommender should weigh — e.g. 'leans contrarian on canonical 60s pop' or 'prefers acousticness > 0.6 in 8+ ratings'"
-  ]
+  "blindspots": ["..."],                          // up to 6 genres/eras with <3 ratings worth exploring
+  "key_signals_for_recommender": ["..."]          // 4-6 bullets
 }
 
 Rules:
-- Contrarian = the listener disagreeing with broad critical consensus (a celebrated album rated 1-3, or an unfashionable / overlooked album rated 9-10). Treat these as the strongest signal, not noise. Cite specific evidence.
+- Contrarian = the listener disagreeing with broad critical consensus (a celebrated album rated 1-3, or an unfashionable / overlooked album rated 9-10). Treat these as the strongest signal, not noise. Cite specific evidence (artist + album + rating).
+- Keep every field tight; do not exceed the caps in comments above.
 - Don't restate raw counts. Extract insight.
 - Group artists by trajectory where multiple albums are rated (e.g. "loves the early albums, lukewarm on recent").
-- Output strictly the JSON above. No prose before or after. No code fence.`;
+- Output strictly the JSON above. No prose before or after. No code fence. No commentary.`;
 
     const userMsg = `Listener's rated albums (${dataset.length} rows). Some rows have full Spotify audio features; some don't yet — use what's there.
 
 ${JSON.stringify(dataset)}`;
 
-    const raw = await callClaude({ apiKey, system, user: userMsg, model: MODEL_SONNET, maxTokens: 4096 });
+    const raw = await callClaude({ apiKey, system, user: userMsg, model: MODEL_SONNET, maxTokens: 8192 });
     let profile;
     try { profile = parseClaudeJson(raw); }
     catch (e) {
-      console.error('Profile JSON parse failed. Raw:', raw.slice(0, 500));
-      return jsonError(502, `Claude returned non-JSON: ${e.message}`);
+      // Log the full response so it shows up in Netlify function logs for diagnosis.
+      console.error('Profile JSON parse failed. Full response below:\n' + raw);
+      return jsonError(502, `Claude returned non-JSON (${e.message}). Check Netlify function logs.`);
     }
 
     const now = new Date().toISOString();
