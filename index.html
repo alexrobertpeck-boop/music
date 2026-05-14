@@ -247,6 +247,77 @@
     margin-top: 10px; display: flex; align-items: center; gap: 10px;
   }
 
+  /* ─── Summary tab ─── */
+  .stat-grid {
+    display: grid; gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    margin-bottom: 18px;
+  }
+  .stat {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .stat .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .stat .value { font-size: 24px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .stat .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  .chart-grid {
+    display: grid; gap: 18px;
+    grid-template-columns: 1fr 1fr;
+  }
+  @media (max-width: 760px) { .chart-grid { grid-template-columns: 1fr; } }
+  .chart-card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 18px;
+  }
+  .chart-card h3 { margin: 0 0 4px; font-size: 16px; }
+  .chart-card .chart-sub { color: var(--muted); font-size: 12px; margin-bottom: 14px; }
+  .chart-card.wide { grid-column: 1 / -1; }
+
+  /* Horizontal-bar chart layout */
+  .hbar-row {
+    display: grid; grid-template-columns: 72px 1fr 48px;
+    align-items: center; gap: 8px; margin-bottom: 6px; font-size: 13px;
+  }
+  .hbar-row .hbar-label { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hbar-row .hbar-track {
+    background: #f1ede5; height: 18px; border-radius: 4px; overflow: hidden;
+  }
+  .hbar-row .hbar-fill { background: var(--accent); height: 100%; }
+  .hbar-row .hbar-fill.muted { background: #c8c2b8; }
+  .hbar-row .hbar-fill.cool { background: #5a6b88; }
+  .hbar-row .hbar-count {
+    text-align: right; color: var(--muted); font-variant-numeric: tabular-nums;
+  }
+
+  /* Vertical-bar (rating histogram, pace) */
+  .vbar-chart {
+    display: grid; gap: 4px;
+    grid-template-columns: repeat(auto-fit, minmax(28px, 1fr));
+    align-items: end; height: 160px;
+  }
+  .vbar-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .vbar-col .vbar-fill {
+    width: 100%; background: var(--accent); border-radius: 3px 3px 0 0;
+    min-height: 1px;
+  }
+  .vbar-col .vbar-num { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .vbar-col .vbar-tick { font-size: 11px; color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 500; margin-top: 4px; }
+
+  /* Audio feature dial */
+  .audio-row {
+    display: grid; grid-template-columns: 110px 1fr 36px;
+    align-items: center; gap: 10px; margin-bottom: 8px; font-size: 13px;
+  }
+  .audio-row .audio-track {
+    background: #f1ede5; height: 8px; border-radius: 999px; overflow: hidden;
+    position: relative;
+  }
+  .audio-row .audio-fill {
+    background: var(--accent); height: 100%; border-radius: 999px;
+  }
+  .audio-row .audio-val { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; }
+
   /* ─── album list ─── */
   .album-list { display: grid; gap: 8px; }
   .album-row {
@@ -363,7 +434,7 @@
   <button data-tab="albums" class="active">My Albums</button>
   <button data-tab="recs">Recommendations</button>
   <button class="future" disabled>Album Club</button>
-  <button class="future" disabled>Summary</button>
+  <button data-tab="summary">Summary</button>
 </nav>
 
 <main id="main">
@@ -444,6 +515,20 @@
         <button type="submit" class="submit" id="recs-submit">Generate 5 recommendations</button>
       </form>
       <div id="recs-results" class="recs-results" style="margin-top: 18px;"></div>
+    </div>
+  </section>
+
+  <!-- Summary tab -->
+  <section id="tab-summary" hidden>
+    <div class="section-head">
+      <div>
+        <h2>Summary</h2>
+        <div class="sub">All stats are personal listening only — your album club picks don't show up here.</div>
+      </div>
+      <button type="button" class="secondary-btn" id="summary-refresh-btn">Refresh</button>
+    </div>
+    <div id="summary-container">
+      <div class="loading">Loading…</div>
     </div>
   </section>
 </main>
@@ -725,15 +810,17 @@ function onUserResolved(user) {
     show($('#gate'));
     hide($('#tab-albums'));
     hide($('#tab-recs'));
+    hide($('#tab-summary'));
     albumsCache = [];
     albumsLoaded = false;
     tasteProfile = null;
+    summaryLoaded = false;
   }
 }
 
 /* ─── tab switcher ────────────────────────────────────────────────────────*/
 function switchTab(tabId) {
-  const tabs = ['albums', 'recs'];
+  const tabs = ['albums', 'recs', 'summary'];
   for (const t of tabs) {
     const btn = document.querySelector(`#tabs button[data-tab="${t}"]`);
     const sec = $(`#tab-${t}`);
@@ -742,6 +829,7 @@ function switchTab(tabId) {
     else { btn.classList.remove('active'); hide(sec); }
   }
   if (tabId === 'recs' && tasteProfile === null) loadTasteProfile(false);
+  if (tabId === 'summary' && !summaryLoaded) loadSummary();
 }
 
 function wireTabs() {
@@ -1689,6 +1777,239 @@ function wireRecsTab() {
   $('#recs-form').addEventListener('submit', onRecsSubmit);
 }
 
+/* ─── Summary tab ─────────────────────────────────────────────────────────
+   One Supabase query for ratings + albums + spotify_features, then all
+   aggregation client-side. Personal_ratings only — the two-domain invariant
+   keeps club picks out of this view by construction. */
+
+let summaryLoaded = false;
+let summaryLoading = false;
+
+async function loadSummary() {
+  if (!currentUser || summaryLoading) return;
+  summaryLoading = true;
+  const container = $('#summary-container');
+  container.innerHTML = `<div class="loading">Crunching numbers…</div>`;
+
+  try {
+    const select = 'rating,rated_at,source,album:albums(year,spotify_features(danceability,energy,valence,acousticness,instrumentalness,tempo,loudness,genres))';
+    const { data, error } = await sb
+      .from('personal_ratings')
+      .select(select)
+      .eq('user_id', currentUser.id)
+      .limit(5000);
+    if (error) throw new Error(error.message);
+
+    renderSummary(data || []);
+    summaryLoaded = true;
+  } catch (err) {
+    console.error('Summary load failed:', err);
+    container.innerHTML = `<div class="empty"><strong>Couldn't load summary.</strong><br>${escapeHtml(err.message)}</div>`;
+  } finally {
+    summaryLoading = false;
+  }
+}
+
+function renderSummary(rows) {
+  const container = $('#summary-container');
+
+  const rated = rows.filter(r => r.rating != null);
+  if (rated.length === 0) {
+    container.innerHTML = `<div class="empty">No rated albums yet. Log a few first.</div>`;
+    return;
+  }
+
+  // Top-line stats
+  const total = rows.length;
+  const ratedCount = rated.length;
+  const unratedCount = total - ratedCount;
+  const sum = rated.reduce((s, r) => s + r.rating, 0);
+  const avg = sum / ratedCount;
+  const tens = rated.filter(r => r.rating === 10).length;
+  const ones = rated.filter(r => r.rating === 1).length;
+  const ratedRecQueued = rows.filter(r => r.rating == null && r.source === 'rec').length;
+
+  // Rating histogram (1..10)
+  const histCounts = new Array(10).fill(0);
+  for (const r of rated) histCounts[r.rating - 1]++;
+  const histMax = Math.max(...histCounts);
+
+  // Decade breakdown — only albums with a year
+  const decadeCounts = new Map();
+  for (const r of rated) {
+    const y = r.album?.year;
+    if (!y || y < 1900) continue;
+    const decade = Math.floor(y / 10) * 10;
+    decadeCounts.set(decade, (decadeCounts.get(decade) || 0) + 1);
+  }
+  const decadeKeys = [...decadeCounts.keys()].sort((a, b) => a - b);
+  const decadeMax = decadeKeys.length ? Math.max(...decadeKeys.map(k => decadeCounts.get(k))) : 0;
+
+  // Genres — flatten the artist-level genres array; count occurrences
+  const genreCounts = new Map();
+  let genreCoveredCount = 0;
+  for (const r of rated) {
+    const gs = r.album?.spotify_features?.genres;
+    if (Array.isArray(gs) && gs.length) {
+      genreCoveredCount++;
+      for (const g of gs) genreCounts.set(g, (genreCounts.get(g) || 0) + 1);
+    }
+  }
+  const topGenres = [...genreCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 12);
+  const genreMax = topGenres[0]?.[1] || 0;
+
+  // Listening pace — by month, last 18 months
+  const paceMap = new Map();          // 'YYYY-MM' -> count
+  for (const r of rated) {
+    const d = new Date(r.rated_at || 0);
+    if (!Number.isFinite(d.getTime())) continue;
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    paceMap.set(key, (paceMap.get(key) || 0) + 1);
+  }
+  const paceKeys = [...paceMap.keys()].sort().slice(-18);
+  const paceMax = Math.max(0, ...paceKeys.map(k => paceMap.get(k)));
+
+  // Audio profile — average over rated rows that have features
+  const featureNames = ['danceability', 'energy', 'valence', 'acousticness', 'instrumentalness'];
+  const featureLabels = {
+    danceability: 'Danceability', energy: 'Energy', valence: 'Valence (happy)',
+    acousticness: 'Acousticness', instrumentalness: 'Instrumentalness',
+  };
+  const featureSums = Object.fromEntries(featureNames.map(k => [k, { sum: 0, n: 0 }]));
+  let tempoSum = 0, tempoN = 0, loudSum = 0, loudN = 0;
+  for (const r of rated) {
+    const f = r.album?.spotify_features;
+    if (!f) continue;
+    for (const k of featureNames) {
+      if (typeof f[k] === 'number') { featureSums[k].sum += f[k]; featureSums[k].n++; }
+    }
+    if (typeof f.tempo === 'number') { tempoSum += f.tempo; tempoN++; }
+    if (typeof f.loudness === 'number') { loudSum += f.loudness; loudN++; }
+  }
+  const featureCoverage = featureSums.danceability.n;
+
+  // ─── Render ───
+  const statsHtml = `<div class="stat-grid">
+    <div class="stat">
+      <div class="label">Albums logged</div>
+      <div class="value">${total}</div>
+      <div class="sub">${ratedCount} rated · ${unratedCount} unrated</div>
+    </div>
+    <div class="stat">
+      <div class="label">Average rating</div>
+      <div class="value">${avg.toFixed(1)}</div>
+      <div class="sub">over ${ratedCount} rated albums</div>
+    </div>
+    <div class="stat">
+      <div class="label">Perfect tens</div>
+      <div class="value">${tens}</div>
+      <div class="sub">${ones} ones</div>
+    </div>
+    <div class="stat">
+      <div class="label">Queued from recs</div>
+      <div class="value">${ratedRecQueued}</div>
+      <div class="sub">waiting on a listen</div>
+    </div>
+  </div>`;
+
+  const histHtml = `<div class="chart-card">
+    <h3>Rating distribution</h3>
+    <div class="chart-sub">How your ${ratedCount} ratings spread across 1–10.</div>
+    <div class="vbar-chart">
+      ${histCounts.map((c, i) => `
+        <div class="vbar-col">
+          <span class="vbar-num">${c || ''}</span>
+          <div class="vbar-fill" style="height: ${histMax ? Math.round((c / histMax) * 130) + 'px' : '1px'};"></div>
+          <span class="vbar-tick">${i + 1}</span>
+        </div>
+      `).join('')}
+    </div>
+  </div>`;
+
+  const decadeHtml = `<div class="chart-card">
+    <h3>By decade</h3>
+    <div class="chart-sub">When the albums you rate were released.</div>
+    ${decadeKeys.length
+      ? decadeKeys.map(d => {
+          const c = decadeCounts.get(d);
+          return `<div class="hbar-row">
+            <span class="hbar-label">${d}s</span>
+            <div class="hbar-track"><div class="hbar-fill cool" style="width: ${(c / decadeMax) * 100}%"></div></div>
+            <span class="hbar-count">${c}</span>
+          </div>`;
+        }).join('')
+      : `<div class="empty">No year data yet.</div>`
+    }
+  </div>`;
+
+  const paceHtml = `<div class="chart-card wide">
+    <h3>Listening pace</h3>
+    <div class="chart-sub">Albums rated per month (last 18 months). Note: CSV-imported ratings cluster at one timestamp.</div>
+    ${paceKeys.length
+      ? `<div class="vbar-chart" style="height: 140px;">
+          ${paceKeys.map(k => {
+            const c = paceMap.get(k);
+            const [, m] = k.split('-');
+            return `<div class="vbar-col">
+              <span class="vbar-num">${c}</span>
+              <div class="vbar-fill" style="height: ${paceMax ? Math.round((c / paceMax) * 110) + 'px' : '1px'};"></div>
+              <span class="vbar-tick">${m}</span>
+            </div>`;
+          }).join('')}
+        </div>`
+      : `<div class="empty">Not enough timestamp data.</div>`}
+  </div>`;
+
+  const genresHtml = `<div class="chart-card">
+    <h3>Top genres</h3>
+    <div class="chart-sub">Pulled from Spotify (artist genres). Coverage: ${genreCoveredCount}/${ratedCount} albums.</div>
+    ${topGenres.length
+      ? topGenres.map(([g, c]) => `<div class="hbar-row">
+          <span class="hbar-label" title="${escapeHtml(g)}">${escapeHtml(g)}</span>
+          <div class="hbar-track"><div class="hbar-fill" style="width: ${(c / genreMax) * 100}%"></div></div>
+          <span class="hbar-count">${c}</span>
+        </div>`).join('')
+      : `<div class="empty">No Spotify genre data yet. Run enrichment from My Albums.</div>`
+    }
+  </div>`;
+
+  const audioHtml = `<div class="chart-card">
+    <h3>Audio profile (avg)</h3>
+    <div class="chart-sub">Average audio features across albums with Spotify data. Coverage: ${featureCoverage}/${ratedCount} albums.</div>
+    ${featureCoverage > 0
+      ? `<div>
+          ${featureNames.map(k => {
+            const avg = featureSums[k].n ? featureSums[k].sum / featureSums[k].n : null;
+            return `<div class="audio-row">
+              <span>${featureLabels[k]}</span>
+              <div class="audio-track"><div class="audio-fill" style="width: ${avg != null ? (avg * 100).toFixed(0) : 0}%"></div></div>
+              <span class="audio-val">${avg != null ? avg.toFixed(2) : '—'}</span>
+            </div>`;
+          }).join('')}
+          <div style="font-size:12px;color:var(--muted);margin-top:10px;">
+            Average tempo: <b style="color:var(--ink);">${tempoN ? Math.round(tempoSum / tempoN) + ' BPM' : '—'}</b>
+            · Loudness: <b style="color:var(--ink);">${loudN ? (loudSum / loudN).toFixed(1) + ' dB' : '—'}</b>
+          </div>
+        </div>`
+      : `<div class="empty">No Spotify features yet. Run enrichment from My Albums.</div>`
+    }
+  </div>`;
+
+  container.innerHTML = statsHtml + `<div class="chart-grid">
+    ${histHtml}
+    ${decadeHtml}
+    ${genresHtml}
+    ${audioHtml}
+    ${paceHtml}
+  </div>`;
+}
+
+function wireSummaryTab() {
+  $('#summary-refresh-btn').addEventListener('click', () => { summaryLoaded = false; loadSummary(); });
+}
+
 /* ─── CSV import ───────────────────────────────────────────────────────────
    Pulls /Albums.csv (served as a static file by Netlify), parses it, and
    writes catalog + personal_ratings rows for the current user. Runs
@@ -1922,6 +2243,7 @@ wireAuthModal();
 wireTabs();
 wireAlbumsTab();
 wireRecsTab();
+wireSummaryTab();
 
 </script>
 </body>
