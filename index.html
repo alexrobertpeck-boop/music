@@ -304,12 +304,23 @@
   .outliers-col li {
     padding: 6px 0; font-size: 14px; line-height: 1.4;
     border-bottom: 1px dashed var(--line);
-    display: flex; align-items: center; gap: 8px;
+    display: grid;
+    grid-template-columns: minmax(80px, 1.2fr) minmax(120px, 2fr) 48px 22px;
+    gap: 8px; align-items: center;
   }
   .outliers-col li:last-child { border-bottom: 0; }
-  .outliers-col .artist { font-weight: 600; color: var(--ink); }
-  .outliers-col .album { color: var(--ink); }
-  .outliers-col .year { color: var(--muted); font-size: 12px; margin-left: auto; }
+  .outliers-col .artist {
+    font-weight: 600; color: var(--ink);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .outliers-col .album {
+    color: var(--ink);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .outliers-col .year {
+    color: var(--muted); font-size: 12px;
+    font-variant-numeric: tabular-nums; text-align: right;
+  }
   .outliers-col .open {
     color: #1db954; text-decoration: none; display: inline-flex; align-items: center;
   }
@@ -347,7 +358,13 @@
   .album-list { display: grid; gap: 8px; }
   .album-row {
     display: grid;
-    grid-template-columns: 1fr auto auto auto;
+    grid-template-columns:
+      minmax(120px, 1.4fr)   /* artist */
+      minmax(180px, 2.4fr)   /* album */
+      56px                   /* year */
+      44px                   /* rating pill */
+      36px                   /* spotify icon (always reserved) */
+      auto;                  /* edit + delete actions */
     gap: 12px;
     align-items: center;
     padding: 12px 14px;
@@ -355,13 +372,36 @@
     border: 1px solid var(--line);
     border-radius: 8px;
   }
-  .album-row .meta {
-    min-width: 0;
+  .album-row .cell { min-width: 0; }
+  .album-row .cell-artist { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .album-row .cell-album { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .album-row .cell-year {
+    color: var(--muted); font-size: 13px;
+    font-variant-numeric: tabular-nums; text-align: right;
   }
-  .album-row .artist { font-weight: 600; }
-  .album-row .album { color: var(--ink); }
-  .album-row .year { color: var(--muted); font-size: 13px; }
-  .album-row .notes-preview { color: var(--muted); font-size: 13px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .album-row .cell-rating { display: flex; justify-content: center; }
+  .album-row .cell-spotify { display: flex; justify-content: center; }
+  .album-row .cell-notes {
+    grid-column: 1 / -1;
+    color: var(--muted); font-size: 13px;
+    border-top: 1px dashed var(--line); padding-top: 8px; margin-top: 2px;
+  }
+  @media (max-width: 720px) {
+    .album-row {
+      grid-template-columns: 1fr 56px 44px 36px auto;
+      grid-template-rows: auto auto;
+    }
+    .album-row .cell-artist { grid-column: 1 / 2; grid-row: 1 / 2; }
+    .album-row .cell-album {
+      grid-column: 1 / 2; grid-row: 2 / 3;
+      font-weight: 400; font-size: 13px; color: var(--muted);
+    }
+    .album-row .cell-year { grid-column: 2 / 3; grid-row: 1 / 2; }
+    .album-row .cell-rating { grid-column: 3 / 4; grid-row: 1 / 2; }
+    .album-row .cell-spotify { grid-column: 4 / 5; grid-row: 1 / 2; }
+    .album-row .cell-actions { grid-column: 5 / 6; grid-row: 1 / 2; }
+    .album-row .cell-notes { grid-row: 3 / 4; }
+  }
   .rating-pill {
     display: inline-flex; align-items: center; justify-content: center;
     min-width: 36px; height: 30px; border-radius: 999px;
@@ -971,38 +1011,42 @@ function cmpRecent(a, b) {
 }
 
 function rowHtml(r) {
-  const rating = r.rating == null
+  const ratingHtml = r.rating == null
     ? `<span class="rating-pill unrated">—</span>`
     : `<span class="rating-pill">${r.rating}</span>`;
-  const yr = r.year ? ` <span class="year">· ${escapeHtml(String(r.year))}</span>` : '';
-  const notes = r.notes
-    ? `<div class="notes-preview" title="${escapeHtml(r.notes)}">${escapeHtml(r.notes)}</div>`
-    : '';
-  // Source badge — quietly tags the row with where it came from. Only shown
-  // for non-manual sources to keep the default state uncluttered.
+  const year = r.year ? escapeHtml(String(r.year)) : '';
+
+  // Source badge — inline with album cell so it doesn't add a column.
   let badge = '';
   if (r.source === 'rec') {
     const tip = r.source_constraint ? `Recommended for: ${r.source_constraint}` : 'Came from a Claude recommendation';
-    badge = `<span class="source-badge rec" title="${escapeHtml(tip)}">REC</span>`;
+    badge = ` <span class="source-badge rec" title="${escapeHtml(tip)}">REC</span>`;
   } else if (r.source === 'csv') {
-    badge = `<span class="source-badge csv" title="Imported from your CSV backlog">CSV</span>`;
+    badge = ` <span class="source-badge csv" title="Imported from your CSV backlog">CSV</span>`;
   }
-  const spotifyLink = r.spotify_album_id
+
+  // Always reserve the Spotify cell so Edit / Delete don't shift across rows.
+  const spotifyCell = r.spotify_album_id
     ? `<a class="spotify-link" href="spotify:album:${encodeURIComponent(r.spotify_album_id)}" target="_blank" rel="noopener" title="Open in Spotify">
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.59 14.41a.625.625 0 01-.86.21c-2.35-1.44-5.31-1.76-8.79-.97a.625.625 0 11-.28-1.22c3.81-.87 7.09-.5 9.72 1.12.3.18.39.57.21.86zm1.22-2.71a.78.78 0 01-1.07.26c-2.69-1.65-6.79-2.13-9.97-1.16a.78.78 0 11-.46-1.49c3.63-1.11 8.16-.58 11.24 1.32.37.23.49.71.26 1.07zm.11-2.83c-3.23-1.92-8.55-2.09-11.63-1.16a.94.94 0 11-.55-1.8c3.54-1.07 9.43-.87 13.13 1.33a.94.94 0 11-.95 1.63z"/></svg>
       </a>`
     : '';
+
+  const notesCell = r.notes
+    ? `<div class="cell cell-notes" title="${escapeHtml(r.notes)}">${escapeHtml(r.notes)}</div>`
+    : '';
+
   return `<div class="album-row" data-id="${escapeHtml(r.album_id)}">
-    <div class="meta">
-      <div><span class="artist">${escapeHtml(r.artist || 'Unknown artist')}</span> — <span class="album">${escapeHtml(r.album || 'Untitled')}</span>${yr}${badge}</div>
-      ${notes}
-    </div>
-    ${rating}
-    <div class="row-actions">
-      ${spotifyLink}
+    <div class="cell cell-artist" title="${escapeHtml(r.artist || '')}">${escapeHtml(r.artist || 'Unknown artist')}</div>
+    <div class="cell cell-album" title="${escapeHtml(r.album || '')}">${escapeHtml(r.album || 'Untitled')}${badge}</div>
+    <div class="cell cell-year">${year}</div>
+    <div class="cell cell-rating">${ratingHtml}</div>
+    <div class="cell cell-spotify">${spotifyCell}</div>
+    <div class="cell cell-actions row-actions">
       <button data-action="edit" data-id="${escapeHtml(r.album_id)}">Edit</button>
       <button class="danger" data-action="delete" data-id="${escapeHtml(r.album_id)}">Delete</button>
     </div>
+    ${notesCell}
   </div>`;
 }
 
@@ -1199,7 +1243,7 @@ function wireAlbumsTab() {
    land in a Confirm Matches modal where the user picks the right Spotify
    release. */
 
-const ENRICH_BATCH = 15;
+const ENRICH_BATCH = 6;
 let enrichRunning = false;
 let enrichState = 'idle';   // 'idle' | 'running' | 'done'
 let pendingManual = [];     // [{ album_id, artist, album, year, candidates }]
@@ -1354,8 +1398,9 @@ async function runEnrich() {
     }
     processed += chunk.length;
     setEnrichProgress(processed, enrichTargetIds.length);
-    // Small pause between batches to keep Spotify happy.
-    await new Promise(r => setTimeout(r, 200));
+    // Pause between batches to keep Spotify rate limits happy. Higher than
+    // before because the cumulative 30-req/s budget can drain across batches.
+    await new Promise(r => setTimeout(r, 800));
   }
 
   enrichLog(`✓ Done. Auto-confirmed: ${autoConfirmed}. Needs review: ${needsManual}. No match: ${noMatch}. Errors: ${errors}.`,
@@ -1916,9 +1961,13 @@ function renderSummary(rows) {
     .slice(0, 12);
   const genreMax = topGenres[0]?.[1] || 0;
 
-  // Listening pace — by month, last 18 months
+  // Listening pace — by month, last 18 months. Excludes CSV-imported rows
+  // because they all share one timestamp (the day of bulk import) and would
+  // drown out the actual listening cadence going forward.
   const paceMap = new Map();          // 'YYYY-MM' -> count
+  let paceExcluded = 0;
   for (const r of rated) {
+    if (r.source === 'csv') { paceExcluded++; continue; }
     const d = new Date(r.rated_at || 0);
     if (!Number.isFinite(d.getTime())) continue;
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -1986,14 +2035,14 @@ function renderSummary(rows) {
 
   const renderOutlierList = (list, emptyLabel) => list.length
     ? `<ul>${list.map(a => `<li>
-        <span class="artist">${escapeHtml(a.artist || '')}</span>
-        <span class="album">— ${escapeHtml(a.album || '')}</span>
-        ${a.year ? `<span class="year">${escapeHtml(String(a.year))}</span>` : ''}
-        ${a.spotify_album_id
+        <span class="artist" title="${escapeHtml(a.artist || '')}">${escapeHtml(a.artist || '')}</span>
+        <span class="album" title="${escapeHtml(a.album || '')}">${escapeHtml(a.album || '')}</span>
+        <span class="year">${a.year ? escapeHtml(String(a.year)) : ''}</span>
+        <span>${a.spotify_album_id
           ? `<a class="open" href="spotify:album:${encodeURIComponent(a.spotify_album_id)}" target="_blank" rel="noopener" title="Open in Spotify">
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.59 14.41a.625.625 0 01-.86.21c-2.35-1.44-5.31-1.76-8.79-.97a.625.625 0 11-.28-1.22c3.81-.87 7.09-.5 9.72 1.12.3.18.39.57.21.86zm1.22-2.71a.78.78 0 01-1.07.26c-2.69-1.65-6.79-2.13-9.97-1.16a.78.78 0 11-.46-1.49c3.63-1.11 8.16-.58 11.24 1.32.37.23.49.71.26 1.07zm.11-2.83c-3.23-1.92-8.55-2.09-11.63-1.16a.94.94 0 11-.55-1.8c3.54-1.07 9.43-.87 13.13 1.33a.94.94 0 11-.95 1.63z"/></svg>
             </a>`
-          : ''}
+          : ''}</span>
       </li>`).join('')}</ul>`
     : `<div class="empty" style="padding: 14px;">${emptyLabel}</div>`;
 
@@ -2030,7 +2079,7 @@ function renderSummary(rows) {
 
   const paceHtml = `<div class="chart-card wide">
     <h3>Listening pace</h3>
-    <div class="chart-sub">Albums rated per month (last 18 months). Note: CSV-imported ratings cluster at one timestamp.</div>
+    <div class="chart-sub">Albums rated per month (last 18 months). ${paceExcluded > 0 ? `Hides ${paceExcluded} CSV-imported entries that share the bulk-import timestamp.` : ''}</div>
     ${paceKeys.length
       ? `<div class="vbar-chart" style="height: 140px;">
           ${paceKeys.map(k => {

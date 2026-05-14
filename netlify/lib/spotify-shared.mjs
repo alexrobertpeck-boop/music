@@ -56,9 +56,11 @@ export async function spotifyFetch(path, params = {}) {
     headers: { 'Authorization': `Bearer ${token}` },
   });
   if (res.status === 429) {
-    // Honor Retry-After if present (Spotify returns it in seconds).
+    // Honor Retry-After if present (Spotify returns it in seconds). Cap at
+    // 5s so a single retry doesn't blow Netlify's 10s sync-function budget;
+    // if Spotify wants longer the caller should re-batch later.
     const retry = Number(res.headers.get('Retry-After') || 1);
-    await new Promise(r => setTimeout(r, Math.min(retry, 10) * 1000));
+    await new Promise(r => setTimeout(r, Math.min(retry, 5) * 1000));
     return spotifyFetch(path, params);
   }
   if (!res.ok) {

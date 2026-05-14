@@ -20,11 +20,11 @@ import {
   getEnv, jsonOk, jsonError,
   verifyHouseholdUser,
   supabaseSelect, supabaseUpdate, supabaseUpsert,
-  searchAlbumCandidates, getAlbumDetails, getAudioFeatures, getArtistGenres,
+  searchAlbumCandidates, getAlbumDetails, getArtistGenres, spotifyFetch,
   aggregateFeatures, isCloseMatch,
 } from '../lib/spotify-shared.mjs';
 
-const MAX_BATCH = 15;
+const MAX_BATCH = 8;   // smaller batches → fewer cumulative Spotify rate-limit hits per Netlify invocation
 
 export default async (req) => {
   const supaUrl = getEnv('SUPABASE_URL');
@@ -40,6 +40,11 @@ export default async (req) => {
   }
 
   try {
+    const url = new URL(req.url);
+    const debugId = url.searchParams.get('debug');
+    if (debugId) {
+      return await handleDebug(debugId, supaUrl, serviceKey);
+    }
     if (req.method === 'POST') {
       return await handleManualConfirm(req, supaUrl, serviceKey);
     }
@@ -49,6 +54,56 @@ export default async (req) => {
     return jsonError(500, e.message || String(e));
   }
 };
+
+// ─── Debug mode (GET ?debug=ALBUM_ID) ──────────────────────────────────────
+// Returns the raw Spotify responses for one album without writing to the DB,
+// so we can confirm whether the /artists endpoint is actually returning
+// genres for this dev app or coming back empty.
+
+async function handleDebug(albumId, supaUrl, serviceKey) {
+  const rows = await supabaseSelect(supaUrl, serviceKey, 'albums',
+    `id=eq.${albumId}&select=id,artist,album,year,spotify_album_id,match_status`);
+  const album = rows?.[0];
+  if (!album) return jsonError(404, 'Album not in catalog.');
+  if (!album.spotify_album_id) {
+    return jsonOk({ album, note: 'No spotify_album_id set — run enrich first.' });
+  }
+
+  const out = { album, calls: {} };
+
+  try {
+    const details = await getAlbumDetails(album.spotify_album_id);
+    out.calls.album_details = {
+      name: details.name,
+      artists: details.artists?.map(a => ({ id: a.id, name: a.name })),
+      total_tracks: details.total_tracks,
+      release_date: details.release_date,
+      has_label: !!details.label,
+      genres_on_album: details.genres,   // some album responses carry genres directly
+    };
+
+    const primaryArtistId = details.artists?.[0]?.id;
+    if (primaryArtistId) {
+      try {
+        const artistRaw = await spotifyFetch(`/artists/${primaryArtistId}`);
+        out.calls.artist = {
+          id: artistRaw.id,
+          name: artistRaw.name,
+          genres: artistRaw.genres,      // <-- this is the key field
+          popularity: artistRaw.popularity,
+          followers: artistRaw.followers?.total,
+          fields_present: Object.keys(artistRaw),
+        };
+      } catch (e) {
+        out.calls.artist = { error: e.message };
+      }
+    }
+  } catch (e) {
+    out.calls.album_details = { error: e.message };
+  }
+
+  return jsonOk(out);
+}
 
 // ─── Batch enrich (GET) ────────────────────────────────────────────────────
 
@@ -160,38 +215,43 @@ async function enrichFeatures(album, supaUrl, serviceKey) {
   const details = await getAlbumDetails(album.spotify_album_id);
   const trackIds = (details.tracks?.items || []).map(t => t.id).filter(Boolean);
 
-  // Spotify deprecated /audio-features for developer apps created after Nov 2024
-  // — new apps get a 403. Treat that as soft-fail: log + continue with an empty
-  // audio-features array. Genres (from /artists) still work and are the bulk of
-  // the value here anyway.
-  let audioFeatures = [];
-  if (trackIds.length) {
+  // Audio features endpoint was deprecated for new dev apps in Nov 2024 and
+  // returns 403 every time, eating rate limit + adding latency for no gain.
+  // We skip the call entirely now. The schema column stays — older apps may
+  // still populate it if someone clones this with grandfathered creds.
+
+  // Primary artist drives genre tags. Some albums (especially compilations)
+  // have multiple artists; we try the first, and if it returns empty we walk
+  // the rest looking for any with genres.
+  let genres = [];
+  let triedArtistIds = [];
+  for (const a of (details.artists || [])) {
+    if (!a?.id) continue;
+    triedArtistIds.push(a.id);
     try {
-      audioFeatures = await getAudioFeatures(trackIds);
+      const g = await getArtistGenres(a.id);
+      if (g && g.length) { genres = g; break; }
     } catch (e) {
-      console.warn(`audio-features unavailable for ${album.id} (${album.artist} — ${album.album}): ${e.message}`);
+      console.warn(`artist ${a.id} fetch failed: ${e.message}`);
     }
   }
+  console.log(`enrich ${album.id} (${album.artist} — ${album.album}) → artists=[${triedArtistIds.join(',')}] genres=${JSON.stringify(genres)}`);
 
-  // Primary artist drives genre tags. Spotify exposes genres on artist, not album.
-  const primaryArtistId = details.artists?.[0]?.id || null;
-  const genres = primaryArtistId ? await getArtistGenres(primaryArtistId) : [];
-
-  const agg = aggregateFeatures(details, audioFeatures);
+  const agg = aggregateFeatures(details, []);
 
   const row = {
     album_id: album.id,
-    danceability: agg.danceability ?? null,
-    energy: agg.energy ?? null,
-    valence: agg.valence ?? null,
-    acousticness: agg.acousticness ?? null,
-    instrumentalness: agg.instrumentalness ?? null,
-    tempo: agg.tempo ?? null,
-    loudness: agg.loudness ?? null,
-    key: agg.key ?? null,
+    danceability: null,
+    energy: null,
+    valence: null,
+    acousticness: null,
+    instrumentalness: null,
+    tempo: null,
+    loudness: null,
+    key: null,
     genres,
     track_count: agg.track_count ?? trackIds.length,
-    raw: { tracks: audioFeatures },  // keep raw track-level for later re-aggregation
+    raw: { tried_artist_ids: triedArtistIds },
     fetched_at: new Date().toISOString(),
   };
   await supabaseUpsert(supaUrl, serviceKey, 'spotify_features', row, 'album_id');
