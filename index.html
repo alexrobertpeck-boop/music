@@ -125,6 +125,42 @@
   .import-log .err { color: #a3261a; }
   .import-log .ok { color: var(--good); }
 
+  /* ─── confirm matches ─── */
+  .candidate-card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: 14px; margin-bottom: 14px;
+  }
+  .candidate-card .source {
+    font-size: 13px; color: var(--muted); margin-bottom: 8px;
+  }
+  .candidate-card .source strong { color: var(--ink); }
+  .candidate-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+  }
+  .candidate {
+    border: 1px solid var(--line); border-radius: 6px; padding: 8px; cursor: pointer;
+    background: #fff; text-align: left; font-family: inherit;
+  }
+  .candidate:hover { border-color: var(--accent); background: #fef9f7; }
+  .candidate img {
+    width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 4px;
+    background: #f1ede5; display: block;
+  }
+  .candidate .name { font-size: 12px; line-height: 1.3; margin-top: 6px; }
+  .candidate .name b { display: block; color: var(--ink); }
+  .candidate .name span { color: var(--muted); }
+  .candidate-card .skip-btn {
+    margin-top: 10px; background: transparent; border: 1px solid var(--line);
+    border-radius: 6px; color: var(--muted); padding: 6px 10px; font-size: 13px;
+  }
+  .candidate-card .skip-btn:hover { color: var(--ink); border-color: #cfc8bc; }
+  .overwrite-toggle {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--muted); margin-top: 10px;
+  }
+  .overwrite-toggle input { margin: 0; }
+
   /* ─── album list ─── */
   .album-list { display: grid; gap: 8px; }
   .album-row {
@@ -282,6 +318,7 @@
         <option value="1-2">1–2</option>
       </select>
       <button type="button" class="secondary-btn" id="import-csv-btn" title="Bulk import from Albums.csv">Import CSV</button>
+      <button type="button" class="secondary-btn" id="spotify-enrich-btn" title="Match albums to Spotify and pull audio features">Spotify enrich</button>
       <div class="count" id="album-count"></div>
     </div>
 
@@ -339,6 +376,35 @@
     <div class="progress-label" id="import-progress-label" hidden></div>
     <div class="import-log" id="import-log" hidden></div>
     <button type="button" class="submit" id="import-start-btn" style="margin-top:14px;" disabled>Import</button>
+  </div>
+</div>
+
+<!-- ────── Spotify enrich modal ────── -->
+<div class="modal" id="enrich-modal" hidden>
+  <div class="modal-backdrop"></div>
+  <div class="modal-content wide">
+    <button class="modal-close" id="enrich-modal-close" aria-label="Close">×</button>
+    <h2>Spotify enrichment</h2>
+    <div class="import-summary" id="enrich-summary">Counting unmatched albums…</div>
+    <div class="progress-bar" id="enrich-progress" hidden><div class="fill" style="width:0"></div></div>
+    <div class="progress-label" id="enrich-progress-label" hidden></div>
+    <div class="import-log" id="enrich-log" hidden></div>
+    <button type="button" class="submit" id="enrich-start-btn" style="margin-top:14px;" disabled>Start enrichment</button>
+  </div>
+</div>
+
+<!-- ────── Confirm matches modal ────── -->
+<div class="modal" id="confirm-modal" hidden>
+  <div class="modal-backdrop"></div>
+  <div class="modal-content wide" style="width: min(720px, calc(100vw - 32px));">
+    <button class="modal-close" id="confirm-modal-close" aria-label="Close">×</button>
+    <h2>Confirm matches</h2>
+    <div class="import-summary" id="confirm-summary">No matches need review.</div>
+    <label class="overwrite-toggle">
+      <input type="checkbox" id="confirm-overwrite-toggle">
+      Overwrite my artist/album names with Spotify's canonical version when I confirm a match
+    </label>
+    <div id="confirm-list" style="margin-top: 14px;"></div>
   </div>
 </div>
 
@@ -825,6 +891,272 @@ function wireAlbumsTab() {
   $('#import-modal .modal-backdrop').addEventListener('click', closeImportModal);
   $('#import-modal-close').addEventListener('click', closeImportModal);
   $('#import-start-btn').addEventListener('click', onImportStartClick);
+
+  $('#spotify-enrich-btn').addEventListener('click', openEnrichModal);
+  $('#enrich-modal .modal-backdrop').addEventListener('click', closeEnrichModal);
+  $('#enrich-modal-close').addEventListener('click', closeEnrichModal);
+  $('#enrich-start-btn').addEventListener('click', onEnrichStartClick);
+
+  $('#confirm-modal .modal-backdrop').addEventListener('click', closeConfirmModal);
+  $('#confirm-modal-close').addEventListener('click', closeConfirmModal);
+}
+
+/* ─── Spotify enrichment ──────────────────────────────────────────────────
+   Walks the catalog rows that don't yet have a spotify_album_id, batching
+   them through /.netlify/functions/spotify-enrich. Auto-confirmed albums are
+   written server-side; ambiguous ones come back with up to 5 candidates and
+   land in a Confirm Matches modal where the user picks the right Spotify
+   release. */
+
+const ENRICH_BATCH = 15;
+let enrichRunning = false;
+let enrichState = 'idle';   // 'idle' | 'running' | 'done'
+let pendingManual = [];     // [{ album_id, artist, album, year, candidates }]
+let enrichTargetIds = [];   // catalog rows we're processing this run
+
+async function authHeaders() {
+  const { data } = await sb.auth.getSession();
+  const token = data?.session?.access_token;
+  if (!token) throw new Error('Not signed in.');
+  return { 'Authorization': `Bearer ${token}` };
+}
+
+async function openEnrichModal() {
+  show($('#enrich-modal'));
+  disableScroll(true);
+  $('#enrich-progress').hidden = true;
+  $('#enrich-progress-label').hidden = true;
+  $('#enrich-log').hidden = true;
+  $('#enrich-log').innerHTML = '';
+  $('#enrich-start-btn').disabled = true;
+  $('#enrich-summary').textContent = 'Counting unmatched albums…';
+  enrichState = 'idle';
+  pendingManual = [];
+
+  if (!currentUser) {
+    $('#enrich-summary').textContent = 'Sign in first.';
+    return;
+  }
+
+  // Find catalog rows without a Spotify ID. Match status 'pending' or 'unmatched'
+  // means it hasn't been resolved; rows already 'confirmed' or 'manual' are skipped.
+  const { data, error } = await sb
+    .from('albums')
+    .select('id, artist, album, year, match_status, spotify_album_id')
+    .is('spotify_album_id', null)
+    .in('match_status', ['pending', 'unmatched'])
+    .order('artist', { ascending: true })
+    .limit(1000);
+
+  if (error) {
+    console.error('Enrich preflight failed:', error);
+    $('#enrich-summary').innerHTML = `<span style="color:#a3261a;">${escapeHtml(error.message)}</span>`;
+    return;
+  }
+  enrichTargetIds = (data || []).map(r => r.id);
+
+  if (enrichTargetIds.length === 0) {
+    $('#enrich-summary').innerHTML = `All albums are already matched to Spotify. Nothing to enrich.`;
+    $('#enrich-start-btn').textContent = 'Close';
+    $('#enrich-start-btn').disabled = false;
+    enrichState = 'done';
+    return;
+  }
+  $('#enrich-summary').innerHTML = `
+    <strong>${enrichTargetIds.length}</strong> unmatched albums in your catalog.<br>
+    Each will be searched on Spotify. Close matches auto-confirm; ambiguous ones land in a review queue.<br>
+    This takes ~1 second per album.
+  `;
+  $('#enrich-start-btn').disabled = false;
+  $('#enrich-start-btn').textContent = 'Start enrichment';
+}
+
+function closeEnrichModal() {
+  if (enrichRunning) return;
+  hide($('#enrich-modal'));
+  disableScroll(false);
+}
+
+function onEnrichStartClick() {
+  if (enrichState === 'idle' && enrichTargetIds.length) return runEnrich();
+  if (enrichState === 'done') {
+    enrichState = 'idle';
+    $('#enrich-start-btn').textContent = 'Start enrichment';
+    closeEnrichModal();
+    if (pendingManual.length) openConfirmModal();
+  }
+}
+
+function enrichLog(msg, kind) {
+  const el = $('#enrich-log');
+  el.hidden = false;
+  const line = document.createElement('div');
+  if (kind) line.className = kind;
+  line.textContent = msg;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+function setEnrichProgress(done, total) {
+  const bar = $('#enrich-progress'); const lbl = $('#enrich-progress-label');
+  bar.hidden = false; lbl.hidden = false;
+  bar.querySelector('.fill').style.width = `${(done / total) * 100}%`;
+  lbl.textContent = `${done} of ${total}`;
+}
+
+async function runEnrich() {
+  if (enrichRunning) return;
+  enrichRunning = true; enrichState = 'running';
+  const btn = $('#enrich-start-btn');
+  btn.disabled = true; btn.textContent = 'Enriching…';
+
+  let processed = 0;
+  let autoConfirmed = 0, needsManual = 0, noMatch = 0, errors = 0;
+  pendingManual = [];
+
+  let headers;
+  try { headers = await authHeaders(); }
+  catch (e) {
+    enrichLog(`✗ ${e.message}`, 'err');
+    enrichRunning = false; enrichState = 'done';
+    btn.disabled = false; btn.textContent = 'Close';
+    return;
+  }
+
+  for (let i = 0; i < enrichTargetIds.length; i += ENRICH_BATCH) {
+    const chunk = enrichTargetIds.slice(i, i + ENRICH_BATCH);
+    try {
+      const res = await fetch(`/.netlify/functions/spotify-enrich?album_ids=${chunk.join(',')}`, { headers });
+      if (!res.ok) {
+        const text = await res.text();
+        enrichLog(`✗ batch ${i / ENRICH_BATCH + 1}: ${res.status} ${text.slice(0, 200)}`, 'err');
+        errors += chunk.length;
+      } else {
+        const data = await res.json();
+        for (const r of (data.results || [])) {
+          if (r.status === 'enriched') {
+            autoConfirmed++;
+          } else if (r.status === 'needs_manual') {
+            needsManual++;
+            pendingManual.push(r);
+          } else if (r.status === 'no_match') {
+            noMatch++;
+            enrichLog(`· no Spotify result for ${r.artist} — ${r.album}`);
+          } else if (r.status === 'error') {
+            errors++;
+            enrichLog(`✗ ${r.artist} — ${r.album}: ${r.message}`, 'err');
+          }
+        }
+      }
+    } catch (err) {
+      errors += chunk.length;
+      enrichLog(`✗ network: ${err.message}`, 'err');
+    }
+    processed += chunk.length;
+    setEnrichProgress(processed, enrichTargetIds.length);
+    // Small pause between batches to keep Spotify happy.
+    await new Promise(r => setTimeout(r, 200));
+  }
+
+  enrichLog(`✓ Done. Auto-confirmed: ${autoConfirmed}. Needs review: ${needsManual}. No match: ${noMatch}. Errors: ${errors}.`,
+    errors ? 'err' : 'ok');
+  if (needsManual) enrichLog(`Click "Review ${needsManual}" to pick the right Spotify release for the ambiguous ones.`);
+
+  enrichRunning = false; enrichState = 'done';
+  btn.disabled = false;
+  btn.textContent = needsManual ? `Review ${needsManual}` : 'Close';
+
+  await loadAlbums();
+}
+
+/* ─── Confirm Matches modal ───────────────────────────────────────────────*/
+
+function openConfirmModal() {
+  show($('#confirm-modal'));
+  disableScroll(true);
+  renderConfirmList();
+}
+function closeConfirmModal() {
+  hide($('#confirm-modal'));
+  disableScroll(false);
+}
+
+function renderConfirmList() {
+  const list = $('#confirm-list');
+  const summary = $('#confirm-summary');
+  if (!pendingManual.length) {
+    summary.textContent = 'All ambiguous matches resolved. Nice work.';
+    list.innerHTML = '';
+    return;
+  }
+  summary.innerHTML = `<strong>${pendingManual.length}</strong> ${pendingManual.length === 1 ? 'album needs' : 'albums need'} a manual pick. Click the Spotify release that matches your album, or skip.`;
+
+  list.innerHTML = pendingManual.map((p, idx) => `
+    <div class="candidate-card" data-idx="${idx}">
+      <div class="source">
+        Your row: <strong>${escapeHtml(p.artist)}</strong> — ${escapeHtml(p.album)}
+        ${p.year ? ` (${escapeHtml(String(p.year))})` : ''}
+      </div>
+      <div class="candidate-grid">
+        ${(p.candidates || []).map((c, ci) => `
+          <button type="button" class="candidate" data-idx="${idx}" data-cidx="${ci}">
+            ${c.cover_url
+              ? `<img src="${escapeHtml(c.cover_url)}" alt="" loading="lazy">`
+              : `<div style="width:100%;aspect-ratio:1/1;background:#f1ede5;border-radius:4px;"></div>`}
+            <div class="name">
+              <b>${escapeHtml(c.album)}</b>
+              <span>${escapeHtml(c.artist)}${c.year ? ' · ' + escapeHtml(String(c.year)) : ''}</span>
+            </div>
+          </button>
+        `).join('')}
+      </div>
+      <button class="skip-btn" data-skip="${idx}">Skip — none match</button>
+    </div>
+  `).join('');
+
+  list.querySelectorAll('.candidate').forEach(btn => {
+    btn.addEventListener('click', () => onCandidatePick(Number(btn.dataset.idx), Number(btn.dataset.cidx)));
+  });
+  list.querySelectorAll('.skip-btn').forEach(btn => {
+    btn.addEventListener('click', () => onCandidateSkip(Number(btn.dataset.skip)));
+  });
+}
+
+async function onCandidatePick(idx, cidx) {
+  const entry = pendingManual[idx];
+  const cand = entry?.candidates?.[cidx];
+  if (!entry || !cand) return;
+  const card = $(`.candidate-card[data-idx="${idx}"]`);
+  if (card) card.style.opacity = '0.5';
+
+  const overwrite = $('#confirm-overwrite-toggle').checked;
+
+  try {
+    const headers = { ...(await authHeaders()), 'Content-Type': 'application/json' };
+    const res = await fetch('/.netlify/functions/spotify-enrich', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        album_id: entry.album_id,
+        spotify_album_id: cand.spotify_id,
+        overwrite_metadata: overwrite,
+      }),
+    });
+    if (!res.ok) throw new Error(`${res.status}: ${(await res.text()).slice(0, 200)}`);
+    pendingManual.splice(idx, 1);
+    renderConfirmList();
+    if (pendingManual.length === 0) await loadAlbums();
+  } catch (err) {
+    console.error('Confirm match failed:', err);
+    if (card) card.style.opacity = '1';
+    alert(`Couldn't confirm: ${err.message}`);
+  }
+}
+
+function onCandidateSkip(idx) {
+  // Leaves match_status='pending' so it can be revisited later. Just drop
+  // from the in-memory queue.
+  pendingManual.splice(idx, 1);
+  renderConfirmList();
 }
 
 /* ─── CSV import ───────────────────────────────────────────────────────────
