@@ -354,6 +354,104 @@
   }
   .audio-row .audio-val { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; }
 
+  /* ─── Album Club ─── */
+  .club-list { display: grid; gap: 12px; }
+  .club-card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 16px; cursor: pointer; transition: border-color 80ms;
+  }
+  .club-card:hover { border-color: var(--accent); background: #fef9f7; }
+  .club-card .head {
+    display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+  .club-card .head .artist { font-weight: 600; font-size: 16px; }
+  .club-card .head .album { font-size: 16px; }
+  .club-card .head .year { color: var(--muted); font-size: 13px; }
+  .club-card .meta {
+    color: var(--muted); font-size: 12px; display: flex; gap: 12px; flex-wrap: wrap;
+  }
+  .club-card .meta .ok { color: var(--good); }
+  .club-card .ratings {
+    display: flex; gap: 12px; margin-top: 6px; font-size: 13px;
+  }
+  .club-card .ratings .who { color: var(--muted); }
+  .club-card .ratings .val {
+    font-weight: 600; color: var(--accent);
+    background: var(--accent-soft); padding: 1px 8px; border-radius: 999px;
+  }
+  .club-card .ratings .val.empty { background: #f1ede5; color: var(--muted); }
+
+  .club-detail .back-btn {
+    background: transparent; border: 0; color: var(--muted); padding: 0;
+    font-size: 14px; cursor: pointer; margin-bottom: 12px;
+  }
+  .club-detail .back-btn:hover { color: var(--ink); }
+  .club-detail .album-header {
+    display: flex; gap: 18px; align-items: center; margin-bottom: 24px;
+    padding: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  }
+  .club-detail .album-header h2 { margin: 0 0 2px; font-size: 22px; }
+  .club-detail .album-header .meta { color: var(--muted); font-size: 13px; }
+  .club-detail .section {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 18px; margin-bottom: 16px;
+  }
+  .club-detail .section h3 { margin: 0 0 4px; font-size: 16px; }
+  .club-detail .section .sub { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+  .club-detail .research-prose {
+    color: var(--ink); line-height: 1.65; font-size: 14px;
+    white-space: pre-wrap;
+  }
+  .club-detail .questions ol { padding-left: 20px; line-height: 1.6; margin: 0; }
+  .club-detail .questions li { margin-bottom: 6px; font-size: 14px; }
+  .club-detail .section .stamp {
+    font-size: 11px; color: var(--muted); margin-top: 12px; font-style: italic;
+  }
+  .club-detail .gen-btn {
+    background: var(--accent); color: #fff; border: 0; border-radius: 6px;
+    padding: 8px 14px; font-weight: 500; font-size: 13px;
+  }
+  .club-detail .gen-btn.regenerate {
+    background: transparent; color: var(--muted);
+    border: 1px solid var(--line);
+  }
+  .club-detail .gen-btn:disabled { background: #c8c2b8; cursor: default; }
+
+  .members-grid {
+    display: grid; gap: 18px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+  .member-col {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 16px;
+  }
+  .member-col h3 { margin: 0 0 4px; font-size: 16px; }
+  .member-col h3 .me-tag { font-size: 11px; color: var(--accent); margin-left: 6px; font-weight: 500; }
+  .member-col .field { margin-top: 14px; }
+  .member-col .field label {
+    display: block; font-size: 12px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; margin-bottom: 5px;
+  }
+  .member-col .field textarea {
+    width: 100%; font: inherit; font-size: 13px;
+    padding: 9px 11px; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--surface); min-height: 80px; resize: vertical;
+  }
+  .member-col .field textarea[readonly] { background: #faf6ef; color: var(--ink); cursor: default; }
+  .member-col .field textarea:focus { outline: 2px solid var(--accent-soft); outline-offset: -1px; }
+  .member-col .field .save-state {
+    font-size: 11px; color: var(--muted); margin-top: 3px; height: 14px;
+  }
+  .member-col .rating-row {
+    display: flex; align-items: center; gap: 10px; margin-top: 8px;
+  }
+  .member-col .rating-row select, .member-col .rating-row .display {
+    font: inherit; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--surface);
+  }
+  .member-col .empty-state { color: var(--muted); font-style: italic; font-size: 13px; }
+
   /* ─── album list ─── */
   .album-list { display: grid; gap: 8px; }
   .album-row {
@@ -506,7 +604,7 @@
 <nav class="tabs" id="tabs" hidden>
   <button data-tab="albums" class="active">My Albums</button>
   <button data-tab="recs">Recommendations</button>
-  <button class="future" disabled>Album Club</button>
+  <button data-tab="club">Album Club</button>
   <button data-tab="summary">Summary</button>
 </nav>
 
@@ -588,6 +686,29 @@
         <button type="submit" class="submit" id="recs-submit">Generate 5 recommendations</button>
       </form>
       <div id="recs-results" class="recs-results" style="margin-top: 18px;"></div>
+    </div>
+  </section>
+
+  <!-- Album Club tab -->
+  <section id="tab-club" hidden>
+    <!-- List view -->
+    <div id="club-list-view">
+      <div class="section-head">
+        <div>
+          <h2>Album Club</h2>
+          <div class="sub">Joint review sessions — kept separate from your personal listening.</div>
+        </div>
+        <button class="add-btn" id="club-new-btn">+ New session</button>
+      </div>
+      <div id="club-sessions-container">
+        <div class="loading">Loading…</div>
+      </div>
+    </div>
+
+    <!-- Detail view (filled dynamically) -->
+    <div id="club-detail-view" hidden class="club-detail">
+      <button class="back-btn" id="club-back-btn">← Back to sessions</button>
+      <div id="club-detail-content"></div>
     </div>
   </section>
 
@@ -696,6 +817,36 @@
       Overwrite my artist/album names with Spotify's canonical version when I confirm a match
     </label>
     <div id="confirm-list" style="margin-top: 14px;"></div>
+  </div>
+</div>
+
+<!-- ────── New club session modal ────── -->
+<div class="modal" id="club-new-modal" hidden>
+  <div class="modal-backdrop"></div>
+  <div class="modal-content wide">
+    <button class="modal-close" id="club-new-modal-close" aria-label="Close">×</button>
+    <h2>Start a new club session</h2>
+    <p style="color: var(--muted); font-size: 13px; margin: -8px 0 14px;">
+      Pick an album for the club to listen to. This is separate from your personal listening — it never affects your taste profile.
+    </p>
+    <form class="form" id="club-new-form">
+      <div class="row">
+        <div>
+          <label for="club-new-artist">Artist</label>
+          <input type="text" id="club-new-artist" required maxlength="200" placeholder="Black Country, New Road">
+        </div>
+        <div>
+          <label for="club-new-album">Album</label>
+          <input type="text" id="club-new-album" required maxlength="200" placeholder="Ants From Up There">
+        </div>
+      </div>
+      <div>
+        <label for="club-new-year">Year (optional)</label>
+        <input type="number" id="club-new-year" min="1900" max="2100" placeholder="2022">
+      </div>
+      <div class="message" id="club-new-message" hidden></div>
+      <button type="submit" class="submit" id="club-new-submit">Create session</button>
+    </form>
   </div>
 </div>
 
@@ -897,16 +1048,20 @@ function onUserResolved(user) {
     hide($('#tab-albums'));
     hide($('#tab-recs'));
     hide($('#tab-summary'));
+    hide($('#tab-club'));
     albumsCache = [];
     albumsLoaded = false;
     tasteProfile = null;
     summaryLoaded = false;
+    clubSessionsLoaded = false;
+    clubSessionsCache = [];
+    clubHouseholdMembers = [];
   }
 }
 
 /* ─── tab switcher ────────────────────────────────────────────────────────*/
 function switchTab(tabId) {
-  const tabs = ['albums', 'recs', 'summary'];
+  const tabs = ['albums', 'recs', 'club', 'summary'];
   for (const t of tabs) {
     const btn = document.querySelector(`#tabs button[data-tab="${t}"]`);
     const sec = $(`#tab-${t}`);
@@ -916,6 +1071,7 @@ function switchTab(tabId) {
   }
   if (tabId === 'recs' && tasteProfile === null) loadTasteProfile(false);
   if (tabId === 'summary' && !summaryLoaded) loadSummary();
+  if (tabId === 'club' && !clubSessionsLoaded) loadClubSessions();
 }
 
 function wireTabs() {
@@ -2179,6 +2335,484 @@ function wireSummaryTab() {
   $('#summary-refresh-btn').addEventListener('click', () => { summaryLoaded = false; loadSummary(); });
 }
 
+/* ─── Album Club ──────────────────────────────────────────────────────────
+   List of sessions + per-session detail view. The detail view replaces the
+   list within the same tab (no modal — there's too much content). Each
+   household member sees a column with their own editable notes + ratings;
+   other members' columns are read-only. */
+
+let clubSessionsLoaded = false;
+let clubSessionsLoading = false;
+let clubSessionsCache = [];                 // [{ id, album, status, research, questions, ratings: [...], notes: [...], picked_by, ... }]
+let clubHouseholdMembers = [];              // [{ user_id, display_name }]
+let currentClubSessionId = null;
+const noteSaveTimers = new Map();           // note key → setTimeout id (debounce)
+
+async function loadClubSessions() {
+  if (!currentUser || clubSessionsLoading) return;
+  clubSessionsLoading = true;
+  const container = $('#club-sessions-container');
+  container.innerHTML = `<div class="loading">Loading…</div>`;
+
+  try {
+    // Household members first — needed for display names + member columns.
+    const { data: members, error: memErr } = await sb
+      .from('household_members')
+      .select('user_id, display_name');
+    if (memErr) throw new Error(memErr.message);
+    clubHouseholdMembers = members || [];
+
+    // All sessions + nested album + ratings + notes.
+    const { data, error } = await sb
+      .from('club_sessions')
+      .select(`
+        id, status, research, questions, picked_by, picked_at, created_at, updated_at,
+        album:albums ( id, artist, album, year, spotify_album_id ),
+        ratings:club_session_ratings ( session_id, user_id, rating, notes, rated_at ),
+        notes:club_notes ( id, user_id, note_type, body, created_at )
+      `)
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (error) throw new Error(error.message);
+    clubSessionsCache = data || [];
+    clubSessionsLoaded = true;
+    renderClubList();
+  } catch (err) {
+    console.error('Club sessions load failed:', err);
+    container.innerHTML = `<div class="empty">
+      <strong>Couldn't load club sessions.</strong><br>${escapeHtml(err.message)}
+    </div>`;
+  } finally {
+    clubSessionsLoading = false;
+  }
+}
+
+function memberName(userId) {
+  const m = clubHouseholdMembers.find(x => x.user_id === userId);
+  return m?.display_name || 'Member';
+}
+
+function renderClubList() {
+  const container = $('#club-sessions-container');
+  if (!clubSessionsCache.length) {
+    container.innerHTML = `<div class="empty">
+      <strong>No club sessions yet.</strong><br>
+      Click + New session to pick the first album.
+    </div>`;
+    return;
+  }
+
+  const cardsHtml = clubSessionsCache.map(s => {
+    const a = s.album || {};
+    const hasResearch = !!s.research?.text;
+    const hasQuestions = Array.isArray(s.questions?.questions) && s.questions.questions.length > 0;
+    const ratingsHtml = clubHouseholdMembers.map(m => {
+      const r = (s.ratings || []).find(x => x.user_id === m.user_id);
+      const val = (r && r.rating != null)
+        ? `<span class="val">${r.rating}</span>`
+        : `<span class="val empty">—</span>`;
+      return `<span><span class="who">${escapeHtml(m.display_name)}:</span> ${val}</span>`;
+    }).join('');
+    const created = new Date(s.created_at).toLocaleDateString();
+
+    return `<div class="club-card" data-id="${escapeHtml(s.id)}">
+      <div class="head">
+        <span class="artist">${escapeHtml(a.artist || 'Unknown artist')}</span>
+        <span class="album">— ${escapeHtml(a.album || 'Untitled')}</span>
+        ${a.year ? `<span class="year">(${escapeHtml(String(a.year))})</span>` : ''}
+      </div>
+      <div class="meta">
+        <span>Started ${escapeHtml(created)}</span>
+        <span class="${hasResearch ? 'ok' : ''}">${hasResearch ? '✓' : '○'} research</span>
+        <span class="${hasQuestions ? 'ok' : ''}">${hasQuestions ? '✓' : '○'} questions</span>
+        <span>by ${escapeHtml(memberName(s.picked_by))}</span>
+      </div>
+      <div class="ratings">${ratingsHtml}</div>
+    </div>`;
+  }).join('');
+
+  container.innerHTML = `<div class="club-list">${cardsHtml}</div>`;
+  container.querySelectorAll('.club-card').forEach(card => {
+    card.addEventListener('click', () => openClubSession(card.dataset.id));
+  });
+}
+
+/* ─── Create session ─────────────────────────────────────────────────────*/
+
+function openClubNewModal() {
+  show($('#club-new-modal'));
+  disableScroll(true);
+  $('#club-new-form').reset();
+  setClubNewMessage(null);
+  setTimeout(() => $('#club-new-artist').focus(), 50);
+}
+function closeClubNewModal() {
+  hide($('#club-new-modal'));
+  disableScroll(false);
+}
+function setClubNewMessage(text, kind = 'error') {
+  const el = $('#club-new-message');
+  if (!text) { hide(el); return; }
+  el.textContent = text;
+  el.className = `message ${kind}`;
+  show(el);
+}
+
+async function handleCreateSession(e) {
+  e.preventDefault();
+  if (!currentUser) return;
+  const artist = $('#club-new-artist').value.trim();
+  const albumName = $('#club-new-album').value.trim();
+  const yearRaw = $('#club-new-year').value.trim();
+  if (!artist || !albumName) { setClubNewMessage('Artist and album are required.'); return; }
+  const year = yearRaw === '' ? null : Number(yearRaw);
+
+  const submit = $('#club-new-submit');
+  submit.disabled = true;
+  setClubNewMessage('Creating…', 'info');
+
+  try {
+    // 1) Resolve or insert the catalog row.
+    let albumId = null;
+    const { data: ins, error: insErr } = await sb
+      .from('albums')
+      .insert({ artist, album: albumName, year, added_by: currentUser.id, match_status: 'pending' })
+      .select('id')
+      .single();
+    if (insErr) {
+      if (insErr.code === '23505') {
+        const { data: existing } = await sb.from('albums')
+          .select('id').ilike('artist', artist).ilike('album', albumName)
+          .limit(1).maybeSingle();
+        if (!existing) throw new Error('Album exists but lookup failed.');
+        albumId = existing.id;
+      } else {
+        throw new Error(insErr.message);
+      }
+    } else {
+      albumId = ins.id;
+    }
+
+    // 2) Insert the session.
+    const { data: sess, error: sessErr } = await sb
+      .from('club_sessions')
+      .insert({
+        album_id: albumId,
+        status: 'queued',
+        picked_by: currentUser.id,
+        picked_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single();
+    if (sessErr) throw new Error(sessErr.message);
+
+    closeClubNewModal();
+    clubSessionsLoaded = false;
+    await loadClubSessions();
+    openClubSession(sess.id);
+  } catch (err) {
+    console.error('Create session failed:', err);
+    setClubNewMessage(err.message);
+  } finally {
+    submit.disabled = false;
+  }
+}
+
+/* ─── Detail view ────────────────────────────────────────────────────────*/
+
+function openClubSession(id) {
+  currentClubSessionId = id;
+  hide($('#club-list-view'));
+  show($('#club-detail-view'));
+  renderClubDetail();
+}
+
+function backToClubList() {
+  currentClubSessionId = null;
+  hide($('#club-detail-view'));
+  show($('#club-list-view'));
+}
+
+function renderClubDetail() {
+  const content = $('#club-detail-content');
+  const session = clubSessionsCache.find(s => s.id === currentClubSessionId);
+  if (!session) {
+    content.innerHTML = `<div class="empty">Session not found. Hit back.</div>`;
+    return;
+  }
+  const a = session.album || {};
+  const research = session.research;
+  const questionsObj = session.questions;
+  const questions = Array.isArray(questionsObj?.questions) ? questionsObj.questions : [];
+
+  const headerHtml = `<div class="album-header">
+    <div style="flex:1;">
+      <h2>${escapeHtml(a.artist || 'Unknown')} — ${escapeHtml(a.album || 'Untitled')}</h2>
+      <div class="meta">
+        ${a.year ? `Released ${escapeHtml(String(a.year))} · ` : ''}
+        Picked by ${escapeHtml(memberName(session.picked_by))}
+        · Started ${new Date(session.created_at).toLocaleDateString()}
+      </div>
+    </div>
+    ${a.spotify_album_id ? `
+      <a class="spotify-link" href="spotify:album:${encodeURIComponent(a.spotify_album_id)}" target="_blank" rel="noopener" title="Open in Spotify">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.59 14.41a.625.625 0 01-.86.21c-2.35-1.44-5.31-1.76-8.79-.97a.625.625 0 11-.28-1.22c3.81-.87 7.09-.5 9.72 1.12.3.18.39.57.21.86zm1.22-2.71a.78.78 0 01-1.07.26c-2.69-1.65-6.79-2.13-9.97-1.16a.78.78 0 11-.46-1.49c3.63-1.11 8.16-.58 11.24 1.32.37.23.49.71.26 1.07zm.11-2.83c-3.23-1.92-8.55-2.09-11.63-1.16a.94.94 0 11-.55-1.8c3.54-1.07 9.43-.87 13.13 1.33a.94.94 0 11-.95 1.63z"/></svg>
+      </a>` : ''}
+  </div>`;
+
+  const researchHtml = `<div class="section">
+    <h3>Research notes</h3>
+    <div class="sub">Quick background generated by Claude so you both arrive with shared context.</div>
+    ${research?.text
+      ? `<div class="research-prose">${escapeHtml(research.text)}</div>
+         <div class="stamp">Generated ${new Date(research.generated_at).toLocaleString()} · ${escapeHtml(research.model || 'Haiku')}</div>
+         <button class="gen-btn regenerate" data-action="research">Regenerate</button>`
+      : `<button class="gen-btn" data-action="research">Generate research notes</button>`
+    }
+  </div>`;
+
+  const questionsHtml = `<div class="section questions">
+    <h3>Discussion questions</h3>
+    <div class="sub">Tailored to the album and both your taste histories. Write your responses in the Discussion notes below.</div>
+    ${questions.length
+      ? `<ol>${questions.map(q => `<li>${escapeHtml(q)}</li>`).join('')}</ol>
+         <div class="stamp">Generated ${new Date(questionsObj.generated_at).toLocaleString()} · ${escapeHtml(questionsObj.model || 'Sonnet')}</div>
+         <button class="gen-btn regenerate" data-action="questions">Regenerate</button>`
+      : `<button class="gen-btn" data-action="questions">Generate questions</button>`
+    }
+  </div>`;
+
+  // Each household member gets a column. Current user's column has editable
+  // textareas + rating; others are read-only.
+  const members = clubHouseholdMembers.length
+    ? clubHouseholdMembers
+    : [{ user_id: currentUser.id, display_name: currentUser.email || 'You' }];
+
+  const noteOf = (uid, type) => (session.notes || []).find(n => n.user_id === uid && n.note_type === type);
+  const ratingOf = (uid) => (session.ratings || []).find(r => r.user_id === uid);
+
+  const memberColumns = members.map(m => {
+    const isMe = m.user_id === currentUser.id;
+    const listenNote = noteOf(m.user_id, 'listen')?.body || '';
+    const discussNote = noteOf(m.user_id, 'discussion')?.body || '';
+    const rRow = ratingOf(m.user_id);
+    const rating = rRow?.rating ?? '';
+    const finalNote = rRow?.notes || '';
+
+    const taLabel = isMe ? '' : ` (read-only)`;
+    const textareaAttrs = isMe ? '' : 'readonly';
+    const editableNotice = isMe ? '' : (listenNote || discussNote ? '' : '<div class="empty-state">Nothing yet.</div>');
+
+    return `<div class="member-col" data-user-id="${escapeHtml(m.user_id)}">
+      <h3>${escapeHtml(m.display_name)}${isMe ? ' <span class="me-tag">you</span>' : ''}</h3>
+
+      <div class="field">
+        <label>Listen notes${taLabel}</label>
+        <textarea ${textareaAttrs} data-note-type="listen" placeholder="${isMe ? 'First-impressions, what stood out, what you want to come back to…' : ''}">${escapeHtml(listenNote)}</textarea>
+        ${isMe ? '<div class="save-state" data-save="listen"></div>' : ''}
+      </div>
+
+      <div class="field">
+        <label>Discussion notes${taLabel}</label>
+        <textarea ${textareaAttrs} data-note-type="discussion" placeholder="${isMe ? 'Your responses to the questions, things to bring up when you discuss…' : ''}">${escapeHtml(discussNote)}</textarea>
+        ${isMe ? '<div class="save-state" data-save="discussion"></div>' : ''}
+      </div>
+
+      <div class="field">
+        <label>Final rating</label>
+        ${isMe ? `
+          <div class="rating-row">
+            <select data-rating>
+              <option value="">— unrated —</option>
+              ${[1,2,3,4,5,6,7,8,9,10].map(n => `<option value="${n}" ${rating === n ? 'selected' : ''}>${n}</option>`).join('')}
+            </select>
+            <input type="text" data-rating-note maxlength="400" placeholder="One-line wrap-up (optional)" value="${escapeHtml(finalNote)}"
+              style="flex:1; font: inherit; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface);">
+          </div>
+          <div class="save-state" data-save="rating"></div>
+        ` : `
+          <div class="rating-row">
+            <span class="display">${rating !== '' ? rating : '—'}</span>
+            ${finalNote ? `<span style="color: var(--muted); font-size: 13px;">${escapeHtml(finalNote)}</span>` : ''}
+          </div>
+        `}
+      </div>
+      ${editableNotice}
+    </div>`;
+  }).join('');
+
+  content.innerHTML = `${headerHtml}${researchHtml}${questionsHtml}
+    <div class="members-grid">${memberColumns}</div>`;
+
+  // Wire generate buttons.
+  content.querySelectorAll('.gen-btn[data-action]').forEach(btn => {
+    btn.addEventListener('click', () => onClubGenerate(btn.dataset.action, btn));
+  });
+
+  // Wire textarea + rating saves for the current user's column only.
+  const myCol = content.querySelector(`.member-col[data-user-id="${CSS.escape(currentUser.id)}"]`);
+  if (myCol) {
+    myCol.querySelectorAll('textarea[data-note-type]').forEach(ta => {
+      ta.addEventListener('input', () => queueNoteSave(currentClubSessionId, ta.dataset.noteType, ta.value, ta));
+      ta.addEventListener('blur', () => flushNoteSave(currentClubSessionId, ta.dataset.noteType));
+    });
+    const ratingSel = myCol.querySelector('[data-rating]');
+    const ratingNote = myCol.querySelector('[data-rating-note]');
+    if (ratingSel) ratingSel.addEventListener('change', () => saveClubRating(ratingSel, ratingNote));
+    if (ratingNote) {
+      ratingNote.addEventListener('input', () => queueRatingSave(ratingSel, ratingNote));
+      ratingNote.addEventListener('blur', () => saveClubRating(ratingSel, ratingNote));
+    }
+  }
+}
+
+/* ─── Research + questions generation ────────────────────────────────────*/
+
+async function onClubGenerate(action, btn) {
+  if (!currentClubSessionId) return;
+  const endpoint = action === 'research'
+    ? '/.netlify/functions/club-research'
+    : '/.netlify/functions/club-questions';
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = action === 'research' ? 'Generating…' : 'Generating questions…';
+  try {
+    const headers = { ...(await authHeaders()), 'Content-Type': 'application/json' };
+    const res = await fetch(endpoint, {
+      method: 'POST', headers,
+      body: JSON.stringify({ session_id: currentClubSessionId }),
+    });
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch { throw new Error(text.slice(0, 300) || `${res.status}`); }
+    if (!res.ok) throw new Error(data.error || `${res.status}`);
+
+    // Reload sessions so the cached copy has the new research/questions.
+    clubSessionsLoaded = false;
+    await loadClubSessions();
+    renderClubDetail();
+  } catch (err) {
+    console.error(`Club ${action} generation failed:`, err);
+    alert(`Couldn't generate: ${err.message}`);
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+/* ─── Notes auto-save (debounced) ────────────────────────────────────────*/
+
+const NOTE_DEBOUNCE_MS = 700;
+
+function noteKey(sessionId, type) { return `${sessionId}::${type}`; }
+
+function queueNoteSave(sessionId, noteType, body, sourceEl) {
+  const key = noteKey(sessionId, noteType);
+  const stateEl = sourceEl?.parentElement?.querySelector(`.save-state[data-save="${noteType}"]`);
+  if (stateEl) stateEl.textContent = 'Typing…';
+  if (noteSaveTimers.has(key)) clearTimeout(noteSaveTimers.get(key));
+  noteSaveTimers.set(key, setTimeout(() => doNoteSave(sessionId, noteType, body, stateEl), NOTE_DEBOUNCE_MS));
+}
+function flushNoteSave(sessionId, noteType) {
+  const key = noteKey(sessionId, noteType);
+  if (!noteSaveTimers.has(key)) return;
+  clearTimeout(noteSaveTimers.get(key));
+  noteSaveTimers.delete(key);
+  // Find current textarea value + save immediately.
+  const ta = document.querySelector(`.member-col[data-user-id="${CSS.escape(currentUser.id)}"] textarea[data-note-type="${noteType}"]`);
+  if (!ta) return;
+  const stateEl = ta.parentElement?.querySelector(`.save-state[data-save="${noteType}"]`);
+  doNoteSave(sessionId, noteType, ta.value, stateEl);
+}
+
+async function doNoteSave(sessionId, noteType, body, stateEl) {
+  if (!currentUser) return;
+  if (stateEl) stateEl.textContent = 'Saving…';
+  try {
+    const trimmed = (body || '').trim();
+    if (trimmed === '') {
+      // Empty body → delete the row so we don't leave empty entries.
+      await sb.from('club_notes')
+        .delete()
+        .eq('session_id', sessionId)
+        .eq('user_id', currentUser.id)
+        .eq('note_type', noteType);
+    } else {
+      await sb.from('club_notes')
+        .upsert({
+          session_id: sessionId,
+          user_id: currentUser.id,
+          note_type: noteType,
+          body: trimmed,
+          created_at: new Date().toISOString(),
+        }, { onConflict: 'session_id,user_id,note_type' });
+    }
+    if (stateEl) {
+      stateEl.textContent = 'Saved · ' + new Date().toLocaleTimeString();
+      setTimeout(() => { if (stateEl.textContent.startsWith('Saved')) stateEl.textContent = ''; }, 2500);
+    }
+    // Update local cache so re-renders show the new content.
+    const sess = clubSessionsCache.find(s => s.id === sessionId);
+    if (sess) {
+      sess.notes = (sess.notes || []).filter(n => !(n.user_id === currentUser.id && n.note_type === noteType));
+      if (body && body.trim()) {
+        sess.notes.push({ user_id: currentUser.id, note_type: noteType, body: body.trim() });
+      }
+    }
+  } catch (err) {
+    console.error('Note save failed:', err);
+    if (stateEl) stateEl.textContent = `Save failed: ${err.message}`;
+  }
+}
+
+/* ─── Rating auto-save ───────────────────────────────────────────────────*/
+
+let ratingDebounceTimer = null;
+function queueRatingSave(sel, note) {
+  if (ratingDebounceTimer) clearTimeout(ratingDebounceTimer);
+  ratingDebounceTimer = setTimeout(() => saveClubRating(sel, note), NOTE_DEBOUNCE_MS);
+}
+
+async function saveClubRating(sel, noteInput) {
+  if (!currentUser || !currentClubSessionId) return;
+  const stateEl = document.querySelector(`.member-col[data-user-id="${CSS.escape(currentUser.id)}"] .save-state[data-save="rating"]`);
+  if (stateEl) stateEl.textContent = 'Saving…';
+  const ratingVal = sel.value === '' ? null : Number(sel.value);
+  const notes = (noteInput?.value || '').trim() || null;
+  try {
+    await sb.from('club_session_ratings').upsert({
+      session_id: currentClubSessionId,
+      user_id: currentUser.id,
+      rating: ratingVal,
+      notes,
+      rated_at: new Date().toISOString(),
+    }, { onConflict: 'session_id,user_id' });
+
+    // Local cache update.
+    const sess = clubSessionsCache.find(s => s.id === currentClubSessionId);
+    if (sess) {
+      sess.ratings = (sess.ratings || []).filter(r => r.user_id !== currentUser.id);
+      sess.ratings.push({ user_id: currentUser.id, rating: ratingVal, notes });
+    }
+    if (stateEl) {
+      stateEl.textContent = 'Saved · ' + new Date().toLocaleTimeString();
+      setTimeout(() => { if (stateEl.textContent.startsWith('Saved')) stateEl.textContent = ''; }, 2500);
+    }
+  } catch (err) {
+    console.error('Rating save failed:', err);
+    if (stateEl) stateEl.textContent = `Save failed: ${err.message}`;
+  }
+}
+
+/* ─── Wire club tab UI ────────────────────────────────────────────────────*/
+
+function wireClubTab() {
+  $('#club-new-btn').addEventListener('click', openClubNewModal);
+  $('#club-back-btn').addEventListener('click', backToClubList);
+  $('#club-new-modal-close').addEventListener('click', closeClubNewModal);
+  $('#club-new-modal .modal-backdrop').addEventListener('click', closeClubNewModal);
+  $('#club-new-form').addEventListener('submit', handleCreateSession);
+}
+
 /* ─── CSV import ───────────────────────────────────────────────────────────
    Pulls /Albums.csv (served as a static file by Netlify), parses it, and
    writes catalog + personal_ratings rows for the current user. Runs
@@ -2413,6 +3047,7 @@ wireTabs();
 wireAlbumsTab();
 wireRecsTab();
 wireSummaryTab();
+wireClubTab();
 
 </script>
 </body>
