@@ -563,6 +563,64 @@
   .club-detail .section { padding: 20px; }
   .club-detail .section + .section { margin-top: 14px; }
 
+  /* ─── Vinyl tab ─── */
+  .segmented {
+    display: inline-flex; background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: 8px; padding: 3px;
+  }
+  .segmented button {
+    background: transparent; border: 0; color: var(--muted);
+    padding: 6px 14px; border-radius: 6px; font: inherit; font-size: 13px;
+    cursor: pointer; transition: color 100ms, background 100ms;
+  }
+  .segmented button.active {
+    background: var(--surface); color: var(--ink);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset;
+  }
+  .segmented button:hover:not(.active) { color: var(--ink); }
+  .segmented .count {
+    font-size: 11px; color: var(--muted); margin-left: 6px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .vinyl-list { display: grid; gap: 10px; }
+  .vinyl-card {
+    display: grid;
+    grid-template-columns: 56px 1fr auto;
+    gap: 14px;
+    align-items: center;
+    padding: 12px 14px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+  }
+  .vinyl-card .album-cover { width: 56px; height: 56px; font-size: 22px; border-radius: 4px; }
+  .vinyl-card .info { min-width: 0; }
+  .vinyl-card .info .artist {
+    font-weight: 600; color: var(--ink);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .vinyl-card .info .album-line { color: var(--ink); font-size: 14px; }
+  .vinyl-card .info .album-line .year {
+    color: var(--muted); font-size: 13px; margin-left: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  .vinyl-card .info .vinyl-notes {
+    color: var(--muted); font-size: 12px; margin-top: 4px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .vinyl-card .actions { display: flex; gap: 6px; align-items: center; }
+  .vinyl-card .actions button {
+    background: transparent; border: 1px solid var(--line); border-radius: 6px;
+    padding: 6px 10px; color: var(--muted); font-size: 12px; cursor: pointer;
+  }
+  .vinyl-card .actions button:hover { color: var(--ink); border-color: var(--line-bright); }
+  .vinyl-card .actions .move-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .vinyl-card .actions .danger:hover { color: var(--err); border-color: var(--err-soft); }
+  @media (max-width: 640px) {
+    .vinyl-card { grid-template-columns: 48px 1fr; grid-template-rows: auto auto; }
+    .vinyl-card .album-cover { width: 48px; height: 48px; grid-row: 1 / 3; }
+    .vinyl-card .actions { grid-column: 2 / 3; grid-row: 2 / 3; flex-wrap: wrap; }
+  }
+
   /* ─── album list ─── */
   .album-list { display: grid; gap: 8px; }
   .album-row {
@@ -721,6 +779,7 @@
   <button data-tab="albums" class="active">My Albums</button>
   <button data-tab="recs">Recommendations</button>
   <button data-tab="club">Album Club</button>
+  <button data-tab="vinyl">Vinyl</button>
   <button data-tab="summary">Summary</button>
 </nav>
 
@@ -828,6 +887,24 @@
     </div>
   </section>
 
+  <!-- Vinyl tab -->
+  <section id="tab-vinyl" hidden>
+    <div class="section-head">
+      <div>
+        <h2>Vinyl</h2>
+        <div class="sub">Records you own + a wishlist. Independent from your listening / club / taste profile.</div>
+      </div>
+      <button class="add-btn" id="vinyl-add-btn">+ Add record</button>
+    </div>
+    <div class="toolbar">
+      <div class="segmented" id="vinyl-toggle">
+        <button data-vinyl-view="owned" class="active">Owned <span class="count" id="vinyl-count-owned"></span></button>
+        <button data-vinyl-view="wishlist">Wishlist <span class="count" id="vinyl-count-wishlist"></span></button>
+      </div>
+    </div>
+    <div id="vinyl-list-container"><div class="loading">Loading…</div></div>
+  </section>
+
   <!-- Summary tab -->
   <section id="tab-summary" hidden>
     <div class="section-head">
@@ -933,6 +1010,47 @@
       Overwrite my artist/album names with Spotify's canonical version when I confirm a match
     </label>
     <div id="confirm-list" style="margin-top: 14px;"></div>
+  </div>
+</div>
+
+<!-- ────── Add / edit vinyl record modal ────── -->
+<div class="modal" id="vinyl-modal" hidden>
+  <div class="modal-backdrop"></div>
+  <div class="modal-content wide">
+    <button class="modal-close" id="vinyl-modal-close" aria-label="Close">×</button>
+    <h2 id="vinyl-modal-title">Add a record</h2>
+    <form class="form" id="vinyl-form">
+      <input type="hidden" id="vinyl-id">
+      <div class="row">
+        <div>
+          <label for="vinyl-artist">Artist</label>
+          <input type="text" id="vinyl-artist" required maxlength="200" placeholder="Powderfinger">
+        </div>
+        <div>
+          <label for="vinyl-album">Album</label>
+          <input type="text" id="vinyl-album" required maxlength="200" placeholder="Odyssey Number Five">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="vinyl-year">Year (optional)</label>
+          <input type="number" id="vinyl-year" min="1900" max="2100" placeholder="2000">
+        </div>
+        <div>
+          <label for="vinyl-status">Status</label>
+          <select id="vinyl-status">
+            <option value="owned">Owned</option>
+            <option value="wishlist">Wishlist</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label for="vinyl-notes">Notes (optional)</label>
+        <textarea id="vinyl-notes" maxlength="2000" placeholder="Pressing details, condition, where you bought it, why it's on the wishlist…"></textarea>
+      </div>
+      <div class="message" id="vinyl-message" hidden></div>
+      <button type="submit" class="submit" id="vinyl-submit">Save</button>
+    </form>
   </div>
 </div>
 
@@ -1183,6 +1301,7 @@ function onUserResolved(user) {
     hide($('#tab-recs'));
     hide($('#tab-summary'));
     hide($('#tab-club'));
+    hide($('#tab-vinyl'));
     albumsCache = [];
     albumsLoaded = false;
     tasteProfile = null;
@@ -1190,12 +1309,14 @@ function onUserResolved(user) {
     clubSessionsLoaded = false;
     clubSessionsCache = [];
     clubHouseholdMembers = [];
+    vinylLoaded = false;
+    vinylCache = [];
   }
 }
 
 /* ─── tab switcher ────────────────────────────────────────────────────────*/
 function switchTab(tabId) {
-  const tabs = ['albums', 'recs', 'club', 'summary'];
+  const tabs = ['albums', 'recs', 'club', 'vinyl', 'summary'];
   for (const t of tabs) {
     const btn = document.querySelector(`#tabs button[data-tab="${t}"]`);
     const sec = $(`#tab-${t}`);
@@ -1206,6 +1327,7 @@ function switchTab(tabId) {
   if (tabId === 'recs' && tasteProfile === null) loadTasteProfile(false);
   if (tabId === 'summary' && !summaryLoaded) loadSummary();
   if (tabId === 'club' && !clubSessionsLoaded) loadClubSessions();
+  if (tabId === 'vinyl' && !vinylLoaded) loadVinyl();
 }
 
 function wireTabs() {
@@ -3110,6 +3232,261 @@ async function handleTracksEditSave() {
   }
 }
 
+/* ─── Vinyl ───────────────────────────────────────────────────────────────
+   Records you own + a wishlist. Each entry links to the shared albums
+   catalog so we get cover art and Spotify links for free. Status flips
+   in place between 'owned' and 'wishlist' (no second row needed). */
+
+let vinylLoaded = false;
+let vinylLoading = false;
+let vinylCache = [];           // [{ id, album_id, status, notes, album: {...} }]
+let vinylView = 'owned';       // 'owned' | 'wishlist'
+
+async function loadVinyl() {
+  if (!currentUser || vinylLoading) return;
+  vinylLoading = true;
+  const container = $('#vinyl-list-container');
+  container.innerHTML = `<div class="loading">Loading…</div>`;
+
+  try {
+    const { data, error } = await sb
+      .from('vinyl_records')
+      .select(`
+        id, status, notes, created_at,
+        album:albums ( id, artist, album, year, spotify_album_id, cover_url )
+      `)
+      .eq('user_id', currentUser.id)
+      .order('created_at', { ascending: false })
+      .limit(2000);
+    if (error) throw new Error(error.message);
+    vinylCache = data || [];
+    vinylLoaded = true;
+    renderVinylList();
+  } catch (err) {
+    console.error('Vinyl load failed:', err);
+    container.innerHTML = `<div class="empty">
+      <strong>Couldn't load vinyl.</strong><br>${escapeHtml(err.message)}<br><br>
+      If this is the first time, did you paste <code>schema-update-005.sql</code> into Supabase?
+    </div>`;
+  } finally {
+    vinylLoading = false;
+  }
+}
+
+function renderVinylList() {
+  const container = $('#vinyl-list-container');
+  const owned = vinylCache.filter(v => v.status === 'owned');
+  const wish = vinylCache.filter(v => v.status === 'wishlist');
+  $('#vinyl-count-owned').textContent = `(${owned.length})`;
+  $('#vinyl-count-wishlist').textContent = `(${wish.length})`;
+
+  const list = vinylView === 'owned' ? owned : wish;
+  if (!list.length) {
+    container.innerHTML = `<div class="empty">
+      <strong>${vinylView === 'owned' ? "No records yet." : "Wishlist is empty."}</strong><br>
+      ${vinylView === 'owned' ? 'Click + Add record to log a record you own.' : 'Add a record and set its status to Wishlist.'}
+    </div>`;
+    return;
+  }
+
+  const cards = list.map(v => {
+    const a = v.album || {};
+    const cover = albumCoverHtml(a, 56);
+    const otherStatus = v.status === 'owned' ? 'wishlist' : 'owned';
+    const moveLabel = v.status === 'owned' ? '→ Wishlist' : '→ Owned';
+    const spotifyLink = a.spotify_album_id
+      ? `<a class="spotify-link" href="spotify:album:${encodeURIComponent(a.spotify_album_id)}" target="_blank" rel="noopener" title="Open in Spotify">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.59 14.41a.625.625 0 01-.86.21c-2.35-1.44-5.31-1.76-8.79-.97a.625.625 0 11-.28-1.22c3.81-.87 7.09-.5 9.72 1.12.3.18.39.57.21.86zm1.22-2.71a.78.78 0 01-1.07.26c-2.69-1.65-6.79-2.13-9.97-1.16a.78.78 0 11-.46-1.49c3.63-1.11 8.16-.58 11.24 1.32.37.23.49.71.26 1.07zm.11-2.83c-3.23-1.92-8.55-2.09-11.63-1.16a.94.94 0 11-.55-1.8c3.54-1.07 9.43-.87 13.13 1.33a.94.94 0 11-.95 1.63z"/></svg>
+        </a>`
+      : '';
+    return `<div class="vinyl-card" data-id="${escapeHtml(v.id)}">
+      ${cover}
+      <div class="info">
+        <div class="artist" title="${escapeHtml(a.artist || '')}">${escapeHtml(a.artist || 'Unknown')}</div>
+        <div class="album-line">${escapeHtml(a.album || 'Untitled')}${a.year ? `<span class="year">· ${escapeHtml(String(a.year))}</span>` : ''}</div>
+        ${v.notes ? `<div class="vinyl-notes" title="${escapeHtml(v.notes)}">${escapeHtml(v.notes)}</div>` : ''}
+      </div>
+      <div class="actions">
+        ${spotifyLink}
+        <button class="move-btn" data-vinyl-action="move" data-id="${escapeHtml(v.id)}" data-to="${escapeHtml(otherStatus)}">${escapeHtml(moveLabel)}</button>
+        <button data-vinyl-action="edit" data-id="${escapeHtml(v.id)}">Edit</button>
+        <button class="danger" data-vinyl-action="delete" data-id="${escapeHtml(v.id)}">Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  container.innerHTML = `<div class="vinyl-list">${cards}</div>`;
+  container.querySelectorAll('[data-vinyl-action]').forEach(btn => {
+    btn.addEventListener('click', () => onVinylAction(btn.dataset.vinylAction, btn.dataset.id, btn.dataset.to));
+  });
+}
+
+function setVinylView(view) {
+  vinylView = view;
+  document.querySelectorAll('#vinyl-toggle button').forEach(b => {
+    b.classList.toggle('active', b.dataset.vinylView === view);
+  });
+  renderVinylList();
+}
+
+/* ─── Add / edit modal ──*/
+
+function openVinylModal(existing) {
+  $('#vinyl-id').value = existing?.id || '';
+  $('#vinyl-artist').value = existing?.album?.artist || '';
+  $('#vinyl-album').value = existing?.album?.album || '';
+  $('#vinyl-year').value = existing?.album?.year ?? '';
+  $('#vinyl-status').value = existing?.status || vinylView || 'owned';
+  $('#vinyl-notes').value = existing?.notes || '';
+  $('#vinyl-modal-title').textContent = existing ? 'Edit record' : 'Add a record';
+  setVinylMessage(null);
+  show($('#vinyl-modal'));
+  disableScroll(true);
+  setTimeout(() => $('#vinyl-artist').focus(), 50);
+}
+function closeVinylModal() {
+  hide($('#vinyl-modal'));
+  disableScroll(false);
+  $('#vinyl-form').reset();
+  setVinylMessage(null);
+}
+function setVinylMessage(text, kind = 'error') {
+  const el = $('#vinyl-message');
+  if (!text) { hide(el); return; }
+  el.textContent = text;
+  el.className = `message ${kind}`;
+  show(el);
+}
+
+async function handleVinylSubmit(e) {
+  e.preventDefault();
+  if (!currentUser) return;
+  const recordId = $('#vinyl-id').value || null;
+  const artist = $('#vinyl-artist').value.trim();
+  const albumName = $('#vinyl-album').value.trim();
+  const yearRaw = $('#vinyl-year').value.trim();
+  const status = $('#vinyl-status').value;
+  const notes = $('#vinyl-notes').value.trim() || null;
+  if (!artist || !albumName) { setVinylMessage('Artist and album are required.'); return; }
+  const year = yearRaw === '' ? null : Number(yearRaw);
+
+  const submit = $('#vinyl-submit');
+  submit.disabled = true;
+  setVinylMessage('Saving…', 'info');
+
+  try {
+    if (recordId) {
+      // Edit existing — only update vinyl_records fields (artist/album/year
+      // changes require the catalog row to change too).
+      const { error } = await sb.from('vinyl_records')
+        .update({ status, notes, updated_at: new Date().toISOString() })
+        .eq('id', recordId)
+        .eq('user_id', currentUser.id);
+      if (error) throw new Error(error.message);
+
+      // If artist/album/year metadata changed, update the linked albums row
+      // too (covers later enrichment too).
+      const original = vinylCache.find(v => v.id === recordId);
+      const albumId = original?.album?.id;
+      if (albumId && (
+        (original?.album?.artist || '') !== artist ||
+        (original?.album?.album || '') !== albumName ||
+        (original?.album?.year ?? null) !== year
+      )) {
+        const { error: albErr } = await sb.from('albums')
+          .update({ artist, album: albumName, year })
+          .eq('id', albumId);
+        if (albErr) console.warn('Could not update album metadata:', albErr.message);
+      }
+    } else {
+      // New record — resolve or create the catalog row, then insert vinyl.
+      let albumId = null;
+      const { data: ins, error: insErr } = await sb
+        .from('albums')
+        .insert({ artist, album: albumName, year, added_by: currentUser.id, match_status: 'pending' })
+        .select('id')
+        .single();
+      if (insErr) {
+        if (insErr.code === '23505') {
+          const { data: existing } = await sb.from('albums')
+            .select('id').ilike('artist', artist).ilike('album', albumName)
+            .limit(1).maybeSingle();
+          if (!existing) throw new Error('Album exists but lookup failed.');
+          albumId = existing.id;
+        } else {
+          throw new Error(insErr.message);
+        }
+      } else {
+        albumId = ins.id;
+      }
+
+      const { error: vErr } = await sb.from('vinyl_records')
+        .insert({
+          user_id: currentUser.id,
+          album_id: albumId,
+          status,
+          notes,
+        });
+      if (vErr) {
+        if (vErr.code === '23505') {
+          throw new Error('You already have this album in your vinyl. Edit the existing entry to update it.');
+        }
+        throw new Error(vErr.message);
+      }
+    }
+    closeVinylModal();
+    vinylLoaded = false;
+    await loadVinyl();
+  } catch (err) {
+    console.error('Vinyl save failed:', err);
+    setVinylMessage(err.message);
+  } finally {
+    submit.disabled = false;
+  }
+}
+
+async function onVinylAction(action, id, to) {
+  if (!currentUser || !id) return;
+  const record = vinylCache.find(v => v.id === id);
+  if (!record) return;
+
+  if (action === 'edit') return openVinylModal(record);
+
+  if (action === 'move') {
+    const { error } = await sb.from('vinyl_records')
+      .update({ status: to, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('user_id', currentUser.id);
+    if (error) { alert(`Couldn't move: ${error.message}`); return; }
+    vinylLoaded = false;
+    await loadVinyl();
+    return;
+  }
+
+  if (action === 'delete') {
+    const a = record.album || {};
+    if (!confirm(`Remove "${a.album}" by ${a.artist} from your ${record.status === 'owned' ? 'collection' : 'wishlist'}?`)) return;
+    const { error } = await sb.from('vinyl_records')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', currentUser.id);
+    if (error) { alert(`Couldn't delete: ${error.message}`); return; }
+    vinylLoaded = false;
+    await loadVinyl();
+    return;
+  }
+}
+
+function wireVinylTab() {
+  $('#vinyl-add-btn').addEventListener('click', () => openVinylModal(null));
+  $('#vinyl-modal-close').addEventListener('click', closeVinylModal);
+  $('#vinyl-modal .modal-backdrop').addEventListener('click', closeVinylModal);
+  $('#vinyl-form').addEventListener('submit', handleVinylSubmit);
+  document.querySelectorAll('#vinyl-toggle button').forEach(b => {
+    b.addEventListener('click', () => setVinylView(b.dataset.vinylView));
+  });
+}
+
 /* ─── Wire club tab UI ────────────────────────────────────────────────────*/
 
 function wireClubTab() {
@@ -3358,6 +3735,7 @@ wireAlbumsTab();
 wireRecsTab();
 wireSummaryTab();
 wireClubTab();
+wireVinylTab();
 
 </script>
 </body>
