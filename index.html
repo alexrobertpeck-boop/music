@@ -100,6 +100,30 @@
   }
   .toolbar input[type="search"] { min-width: 240px; flex: 1; max-width: 360px; }
   .toolbar .count { margin-left: auto; align-self: center; color: var(--muted); font-size: 13px; }
+  .toolbar .secondary-btn {
+    background: transparent; border: 1px solid var(--line); border-radius: 6px;
+    color: var(--muted); padding: 8px 12px;
+  }
+  .toolbar .secondary-btn:hover { color: var(--ink); border-color: #cfc8bc; }
+
+  /* ─── import modal extras ─── */
+  .import-summary { color: var(--muted); font-size: 14px; line-height: 1.5; margin-bottom: 14px; }
+  .import-summary strong { color: var(--ink); font-weight: 600; }
+  .progress-bar {
+    height: 8px; background: #f1ede5; border-radius: 999px; overflow: hidden;
+    margin: 12px 0 6px;
+  }
+  .progress-bar .fill { height: 100%; background: var(--accent); transition: width 120ms linear; }
+  .progress-label { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .import-log {
+    max-height: 160px; overflow-y: auto;
+    background: #faf6ef; border: 1px solid var(--line); border-radius: 6px;
+    padding: 8px 10px; font: 12px/1.5 ui-monospace, "SF Mono", Menlo, monospace;
+    color: var(--muted); margin-top: 12px;
+  }
+  .import-log[hidden] { display: none; }
+  .import-log .err { color: #a3261a; }
+  .import-log .ok { color: var(--good); }
 
   /* ─── album list ─── */
   .album-list { display: grid; gap: 8px; }
@@ -257,6 +281,7 @@
         <option value="3-4">3–4</option>
         <option value="1-2">1–2</option>
       </select>
+      <button type="button" class="secondary-btn" id="import-csv-btn" title="Bulk import from Albums.csv">Import CSV</button>
       <div class="count" id="album-count"></div>
     </div>
 
@@ -298,6 +323,22 @@
         <button type="button" id="auth-toggle-btn">Sign up</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- ────── Import CSV modal ────── -->
+<div class="modal" id="import-modal" hidden>
+  <div class="modal-backdrop"></div>
+  <div class="modal-content wide">
+    <button class="modal-close" id="import-modal-close" aria-label="Close">×</button>
+    <h2>Import from Albums.csv</h2>
+    <div class="import-summary" id="import-summary">
+      Loading your CSV backlog…
+    </div>
+    <div class="progress-bar" id="import-progress" hidden><div class="fill" style="width:0"></div></div>
+    <div class="progress-label" id="import-progress-label" hidden></div>
+    <div class="import-log" id="import-log" hidden></div>
+    <button type="button" class="submit" id="import-start-btn" style="margin-top:14px;" disabled>Import</button>
   </div>
 </div>
 
@@ -779,6 +820,238 @@ function wireAlbumsTab() {
   });
   $('#album-sort').addEventListener('change', renderAlbumList);
   $('#album-rating-filter').addEventListener('change', renderAlbumList);
+
+  $('#import-csv-btn').addEventListener('click', openImportModal);
+  $('#import-modal .modal-backdrop').addEventListener('click', closeImportModal);
+  $('#import-modal-close').addEventListener('click', closeImportModal);
+  $('#import-start-btn').addEventListener('click', onImportStartClick);
+}
+
+/* ─── CSV import ───────────────────────────────────────────────────────────
+   Pulls /Albums.csv (served as a static file by Netlify), parses it, and
+   writes catalog + personal_ratings rows for the current user. Runs
+   entirely client-side: Alex is authenticated, RLS allows him to insert
+   into albums (household) and personal_ratings (own rows), so no Netlify
+   Function or service-role key is required. Safe to re-run — existing
+   catalog rows are reused via case-insensitive dedupe, and personal_ratings
+   uses upsert on (album_id, user_id). */
+
+let importParsed = null;       // { rows: [...], header: [...] }
+let importRunning = false;
+let importState = 'idle';      // 'idle' | 'running' | 'done'
+
+function onImportStartClick() {
+  if (importState === 'idle') return runImport();
+  if (importState === 'done') {
+    importState = 'idle';
+    $('#import-start-btn').textContent = 'Import';
+    closeImportModal();
+  }
+}
+
+async function openImportModal() {
+  const modal = $('#import-modal');
+  const summary = $('#import-summary');
+  const startBtn = $('#import-start-btn');
+  $('#import-progress').hidden = true;
+  $('#import-progress-label').hidden = true;
+  $('#import-log').hidden = true;
+  $('#import-log').innerHTML = '';
+  startBtn.disabled = true;
+  summary.textContent = 'Loading your CSV backlog…';
+  show(modal);
+  disableScroll(true);
+
+  try {
+    const res = await fetch('/Albums.csv', { cache: 'no-cache' });
+    if (!res.ok) throw new Error(`Couldn't load /Albums.csv (status ${res.status}).`);
+    const text = await res.text();
+    const parsed = parseAlbumsCsv(text);
+    importParsed = parsed;
+
+    const rated = parsed.rows.filter(r => r.rating != null).length;
+    const unrated = parsed.rows.length - rated;
+    summary.innerHTML = `
+      Found <strong>${parsed.rows.length}</strong> albums in <code>/Albums.csv</code>
+      (<strong>${rated}</strong> with ratings, <strong>${unrated}</strong> unrated).<br>
+      This will add them to the shared catalog and create your personal ratings.
+      Existing entries are skipped, so re-running is safe.
+    `;
+    startBtn.disabled = false;
+  } catch (err) {
+    console.error('Import preflight failed:', err);
+    summary.innerHTML = `<span style="color:#a3261a;">${escapeHtml(err.message)}</span>`;
+    importParsed = null;
+  }
+}
+
+function closeImportModal() {
+  if (importRunning) return;  // don't allow closing mid-import
+  hide($('#import-modal'));
+  disableScroll(false);
+}
+
+/* Minimal CSV parser supporting RFC 4180-style double-quoted fields
+   (artist names like "Black Country, New Road" need this). Strips UTF-8
+   BOM. Handles CR/LF line endings. */
+function parseAlbumsCsv(text) {
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);  // strip BOM
+  const rows = [];
+  let field = '';
+  let row = [];
+  let inQuotes = false;
+  let i = 0;
+  const N = text.length;
+
+  while (i < N) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i += 2; continue; }  // escaped quote
+        inQuotes = false; i++; continue;
+      }
+      field += c; i++; continue;
+    }
+    if (c === '"') { inQuotes = true; i++; continue; }
+    if (c === ',') { row.push(field); field = ''; i++; continue; }
+    if (c === '\r') { i++; continue; }
+    if (c === '\n') { row.push(field); rows.push(row); field = ''; row = []; i++; continue; }
+    field += c; i++;
+  }
+  if (field !== '' || row.length > 0) { row.push(field); rows.push(row); }
+
+  // First row = header.
+  const header = (rows.shift() || []).map(h => h.trim().toLowerCase());
+  const ix = {
+    artist: header.indexOf('artist'),
+    album:  header.indexOf('album'),
+    year:   header.indexOf('year'),
+    rating: header.indexOf('rating'),
+  };
+  if (ix.artist < 0 || ix.album < 0) {
+    throw new Error(`CSV header missing Artist/Album columns. Got: ${header.join(', ')}`);
+  }
+
+  const parsed = [];
+  for (const r of rows) {
+    const artist = (r[ix.artist] || '').trim();
+    const album  = (r[ix.album]  || '').trim();
+    if (!artist || !album) continue;  // skip blank lines
+    const yearRaw = ix.year >= 0 ? (r[ix.year] || '').trim() : '';
+    const ratingRaw = ix.rating >= 0 ? (r[ix.rating] || '').trim() : '';
+    const year = yearRaw === '' ? null : Number(yearRaw);
+    const rating = ratingRaw === '' ? null : Number(ratingRaw);
+    parsed.push({
+      artist,
+      album,
+      year: Number.isFinite(year) ? year : null,
+      rating: Number.isFinite(rating) && rating >= 1 && rating <= 10 ? rating : null,
+    });
+  }
+  return { rows: parsed, header };
+}
+
+function importLog(msg, kind) {
+  const el = $('#import-log');
+  el.hidden = false;
+  const line = document.createElement('div');
+  if (kind) line.className = kind;
+  line.textContent = msg;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+function setImportProgress(done, total) {
+  const bar = $('#import-progress');
+  const lbl = $('#import-progress-label');
+  bar.hidden = false; lbl.hidden = false;
+  bar.querySelector('.fill').style.width = `${(done / total) * 100}%`;
+  lbl.textContent = `${done} of ${total}`;
+}
+
+async function runImport() {
+  if (!currentUser || !importParsed || importRunning) return;
+  importRunning = true;
+  importState = 'running';
+  const startBtn = $('#import-start-btn');
+  startBtn.disabled = true;
+  startBtn.textContent = 'Importing…';
+
+  const rows = importParsed.rows;
+  let processed = 0;
+  let inserted = 0, reused = 0, ratingsUpserted = 0, errors = 0;
+  const nowIso = new Date().toISOString();
+
+  for (const r of rows) {
+    try {
+      let albumId = null;
+
+      // Try to insert the catalog row. On unique conflict, look up the
+      // existing row. Same pattern as the single-add form. We don't bulk
+      // insert here because we need each row's id for the rating upsert
+      // and Supabase's chained insert+select returns null for skipped
+      // conflicts on bulk inserts.
+      const { data: ins, error: insErr } = await sb
+        .from('albums')
+        .insert({
+          artist: r.artist,
+          album: r.album,
+          year: r.year,
+          added_by: currentUser.id,
+          match_status: 'pending',
+        })
+        .select('id')
+        .single();
+
+      if (insErr) {
+        if (insErr.code === '23505') {
+          const { data: existing, error: lookupErr } = await sb
+            .from('albums')
+            .select('id')
+            .ilike('artist', r.artist)
+            .ilike('album', r.album)
+            .limit(1)
+            .maybeSingle();
+          if (lookupErr || !existing) throw new Error(lookupErr?.message || 'dedupe lookup empty');
+          albumId = existing.id;
+          reused++;
+        } else {
+          throw new Error(insErr.message);
+        }
+      } else {
+        albumId = ins.id;
+        inserted++;
+      }
+
+      const { error: rateErr } = await sb
+        .from('personal_ratings')
+        .upsert({
+          album_id: albumId,
+          user_id: currentUser.id,
+          rating: r.rating,
+          notes: null,
+          rated_at: nowIso,
+        }, { onConflict: 'album_id,user_id' });
+
+      if (rateErr) throw new Error(`rating: ${rateErr.message}`);
+      ratingsUpserted++;
+    } catch (err) {
+      errors++;
+      importLog(`✗ ${r.artist} — ${r.album}: ${err.message}`, 'err');
+    }
+    processed++;
+    if (processed % 5 === 0 || processed === rows.length) {
+      setImportProgress(processed, rows.length);
+      await new Promise(rAF => requestAnimationFrame(rAF));  // let the UI breathe
+    }
+  }
+
+  importLog(`✓ Done. Catalog: ${inserted} new + ${reused} reused. Ratings written: ${ratingsUpserted}. Errors: ${errors}.`, errors ? 'err' : 'ok');
+  startBtn.textContent = 'Close';
+  startBtn.disabled = false;
+  importRunning = false;
+  importState = 'done';
+  await loadAlbums();
 }
 
 /* ─── init ────────────────────────────────────────────────────────────────*/
