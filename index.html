@@ -65,14 +65,16 @@
   }
 
   /* ─── header ─── */
-  header.site {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 22px;
+  .topbar {
+    position: sticky; top: 0; z-index: 50;
     background: rgba(23, 23, 29, 0.82);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
+  }
+  header.site {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 22px;
     border-bottom: 1px solid var(--line);
-    position: sticky; top: 0; z-index: 50;
   }
   header.site h1 {
     margin: 0; font-size: 18px;
@@ -92,11 +94,7 @@
   nav.tabs {
     display: flex; gap: 4px;
     padding: 0 22px;
-    background: rgba(23, 23, 29, 0.82);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--line);
-    position: sticky; top: 53px; z-index: 49;
   }
   nav.tabs button {
     background: transparent; border: 0;
@@ -814,6 +812,7 @@
 </head>
 <body>
 
+<div class="topbar">
 <header class="site">
   <h1 title="Reckoner — Radiohead, In Rainbows (2007)"><span class="leaf">🎵</span> Reckoner Music</h1>
   <div class="auth-area" id="auth-area"></div>
@@ -826,6 +825,7 @@
   <button data-tab="vinyl">Vinyl</button>
   <button data-tab="summary">Summary</button>
 </nav>
+</div>
 
 <main id="main">
   <!-- Logged-out gate -->
