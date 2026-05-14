@@ -159,7 +159,19 @@ async function handleManualConfirm(req, supaUrl, serviceKey) {
 async function enrichFeatures(album, supaUrl, serviceKey) {
   const details = await getAlbumDetails(album.spotify_album_id);
   const trackIds = (details.tracks?.items || []).map(t => t.id).filter(Boolean);
-  const audioFeatures = trackIds.length ? await getAudioFeatures(trackIds) : [];
+
+  // Spotify deprecated /audio-features for developer apps created after Nov 2024
+  // — new apps get a 403. Treat that as soft-fail: log + continue with an empty
+  // audio-features array. Genres (from /artists) still work and are the bulk of
+  // the value here anyway.
+  let audioFeatures = [];
+  if (trackIds.length) {
+    try {
+      audioFeatures = await getAudioFeatures(trackIds);
+    } catch (e) {
+      console.warn(`audio-features unavailable for ${album.id} (${album.artist} — ${album.album}): ${e.message}`);
+    }
+  }
 
   // Primary artist drives genre tags. Spotify exposes genres on artist, not album.
   const primaryArtistId = details.artists?.[0]?.id || null;

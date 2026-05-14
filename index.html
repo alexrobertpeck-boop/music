@@ -290,6 +290,31 @@
     text-align: right; color: var(--muted); font-variant-numeric: tabular-nums;
   }
 
+  /* Outliers list (perfect 10s and 1s) */
+  .outliers-grid {
+    display: grid; gap: 18px;
+    grid-template-columns: 1fr 1fr;
+  }
+  @media (max-width: 520px) { .outliers-grid { grid-template-columns: 1fr; } }
+  .outliers-col h4 {
+    margin: 0 0 8px; font-size: 13px; text-transform: uppercase;
+    letter-spacing: 0.04em; color: var(--muted); font-weight: 600;
+  }
+  .outliers-col ul { list-style: none; padding: 0; margin: 0; }
+  .outliers-col li {
+    padding: 6px 0; font-size: 14px; line-height: 1.4;
+    border-bottom: 1px dashed var(--line);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .outliers-col li:last-child { border-bottom: 0; }
+  .outliers-col .artist { font-weight: 600; color: var(--ink); }
+  .outliers-col .album { color: var(--ink); }
+  .outliers-col .year { color: var(--muted); font-size: 12px; margin-left: auto; }
+  .outliers-col .open {
+    color: #1db954; text-decoration: none; display: inline-flex; align-items: center;
+  }
+  .outliers-col .open svg { width: 14px; height: 14px; display: block; }
+
   /* Vertical-bar (rating histogram, pace) */
   .vbar-chart {
     display: grid; gap: 4px;
@@ -344,13 +369,21 @@
     font-variant-numeric: tabular-nums; font-weight: 600;
   }
   .rating-pill.unrated { background: #f1ede5; color: var(--muted); font-weight: 400; }
-  .row-actions { display: flex; gap: 6px; }
+  .row-actions { display: flex; gap: 6px; align-items: center; }
   .row-actions button {
     background: transparent; border: 1px solid var(--line); border-radius: 6px;
     padding: 6px 10px; color: var(--muted); font-size: 13px;
   }
   .row-actions button:hover { color: var(--ink); border-color: #cfc8bc; }
   .row-actions .danger:hover { color: #a3261a; border-color: #e0bcb6; }
+  .spotify-link {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border-radius: 6px;
+    color: #1db954; text-decoration: none;
+    border: 1px solid var(--line);
+  }
+  .spotify-link:hover { background: #f3fbf6; border-color: #c8e7d3; }
+  .spotify-link svg { width: 16px; height: 16px; display: block; }
 
   .empty {
     padding: 40px 24px; text-align: center;
@@ -849,7 +882,7 @@ async function loadAlbums() {
      dad's rows into Alex's My Albums view, or vice versa. */
   const { data, error } = await sb
     .from('personal_ratings')
-    .select('rating, notes, rated_at, source, source_constraint, album:albums ( id, artist, album, year, match_status )')
+    .select('rating, notes, rated_at, source, source_constraint, album:albums ( id, artist, album, year, match_status, spotify_album_id )')
     .eq('user_id', currentUser.id)
     .order('rated_at', { ascending: false })
     .limit(2000);
@@ -866,6 +899,7 @@ async function loadAlbums() {
     album: r.album.album,
     year: r.album.year,
     match_status: r.album.match_status,
+    spotify_album_id: r.album.spotify_album_id || null,
     rating: r.rating,
     notes: r.notes,
     rated_at: r.rated_at,
@@ -953,6 +987,11 @@ function rowHtml(r) {
   } else if (r.source === 'csv') {
     badge = `<span class="source-badge csv" title="Imported from your CSV backlog">CSV</span>`;
   }
+  const spotifyLink = r.spotify_album_id
+    ? `<a class="spotify-link" href="https://open.spotify.com/album/${encodeURIComponent(r.spotify_album_id)}" target="_blank" rel="noopener" title="Open in Spotify">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.59 14.41a.625.625 0 01-.86.21c-2.35-1.44-5.31-1.76-8.79-.97a.625.625 0 11-.28-1.22c3.81-.87 7.09-.5 9.72 1.12.3.18.39.57.21.86zm1.22-2.71a.78.78 0 01-1.07.26c-2.69-1.65-6.79-2.13-9.97-1.16a.78.78 0 11-.46-1.49c3.63-1.11 8.16-.58 11.24 1.32.37.23.49.71.26 1.07zm.11-2.83c-3.23-1.92-8.55-2.09-11.63-1.16a.94.94 0 11-.55-1.8c3.54-1.07 9.43-.87 13.13 1.33a.94.94 0 11-.95 1.63z"/></svg>
+      </a>`
+    : '';
   return `<div class="album-row" data-id="${escapeHtml(r.album_id)}">
     <div class="meta">
       <div><span class="artist">${escapeHtml(r.artist || 'Unknown artist')}</span> — <span class="album">${escapeHtml(r.album || 'Untitled')}</span>${yr}${badge}</div>
@@ -960,6 +999,7 @@ function rowHtml(r) {
     </div>
     ${rating}
     <div class="row-actions">
+      ${spotifyLink}
       <button data-action="edit" data-id="${escapeHtml(r.album_id)}">Edit</button>
       <button class="danger" data-action="delete" data-id="${escapeHtml(r.album_id)}">Delete</button>
     </div>
@@ -1189,34 +1229,44 @@ async function openEnrichModal() {
     return;
   }
 
-  // Find catalog rows without a Spotify ID. Match status 'pending' or 'unmatched'
-  // means it hasn't been resolved; rows already 'confirmed' or 'manual' are skipped.
-  const { data, error } = await sb
-    .from('albums')
-    .select('id, artist, album, year, match_status, spotify_album_id')
-    .is('spotify_album_id', null)
-    .in('match_status', ['pending', 'unmatched'])
-    .order('artist', { ascending: true })
-    .limit(1000);
-
-  if (error) {
-    console.error('Enrich preflight failed:', error);
-    $('#enrich-summary').innerHTML = `<span style="color:#a3261a;">${escapeHtml(error.message)}</span>`;
+  // Two categories need enrichment:
+  //   (1) Catalog rows without a Spotify ID (still need a search + match).
+  //   (2) Matched rows without a spotify_features row (e.g. earlier runs that
+  //       failed on the audio-features 403 before genres got written).
+  const [catalogRes, featuresRes] = await Promise.all([
+    sb.from('albums')
+      .select('id, artist, album, year, match_status, spotify_album_id')
+      .order('artist', { ascending: true })
+      .limit(2000),
+    sb.from('spotify_features').select('album_id').limit(5000),
+  ]);
+  if (catalogRes.error) {
+    console.error('Enrich preflight failed:', catalogRes.error);
+    $('#enrich-summary').innerHTML = `<span style="color:#a3261a;">${escapeHtml(catalogRes.error.message)}</span>`;
     return;
   }
-  enrichTargetIds = (data || []).map(r => r.id);
+  const haveFeatures = new Set((featuresRes.data || []).map(f => f.album_id));
+  const catalog = catalogRes.data || [];
+  const needsSearch = catalog.filter(r => !r.spotify_album_id);
+  const needsFeaturesOnly = catalog.filter(r => r.spotify_album_id && !haveFeatures.has(r.id));
+  enrichTargetIds = [...needsFeaturesOnly, ...needsSearch].map(r => r.id);
 
   if (enrichTargetIds.length === 0) {
-    $('#enrich-summary').innerHTML = `All albums are already matched to Spotify. Nothing to enrich.`;
+    $('#enrich-summary').innerHTML = `Every album in your catalog is matched and has Spotify metadata. Nothing to do.`;
     $('#enrich-start-btn').textContent = 'Close';
     $('#enrich-start-btn').disabled = false;
     enrichState = 'done';
     return;
   }
   $('#enrich-summary').innerHTML = `
-    <strong>${enrichTargetIds.length}</strong> unmatched albums in your catalog.<br>
-    Each will be searched on Spotify. Close matches auto-confirm; ambiguous ones land in a review queue.<br>
-    This takes ~1 second per album.
+    <strong>${enrichTargetIds.length}</strong> albums need enrichment:
+    ${needsSearch.length} new to Spotify (will search + match),
+    ${needsFeaturesOnly.length} already matched but missing metadata (will just refresh).<br>
+    Each takes ~1 second.
+    <div style="font-size:12px;color:var(--muted);margin-top:6px;">
+      Note: Spotify deprecated audio features for new dev apps in Nov 2024, so only <em>genres</em> will populate.
+      Tempo / energy / valence stay blank.
+    </div>
   `;
   $('#enrich-start-btn').disabled = false;
   $('#enrich-start-btn').textContent = 'Start enrichment';
@@ -1792,7 +1842,7 @@ async function loadSummary() {
   container.innerHTML = `<div class="loading">Crunching numbers…</div>`;
 
   try {
-    const select = 'rating,rated_at,source,album:albums(year,spotify_features(danceability,energy,valence,acousticness,instrumentalness,tempo,loudness,genres))';
+    const select = 'rating,rated_at,source,album:albums(artist,album,year,spotify_album_id,spotify_features(danceability,energy,valence,acousticness,instrumentalness,tempo,loudness,genres))';
     const { data, error } = await sb
       .from('personal_ratings')
       .select(select)
@@ -1833,6 +1883,12 @@ function renderSummary(rows) {
   const histCounts = new Array(10).fill(0);
   for (const r of rated) histCounts[r.rating - 1]++;
   const histMax = Math.max(...histCounts);
+
+  // Outliers — the 10s and 1s, including artist/album for display
+  const tensList = rated.filter(r => r.rating === 10)
+    .map(r => ({ artist: r.album?.artist, album: r.album?.album, year: r.album?.year, spotify_album_id: r.album?.spotify_album_id }));
+  const onesList = rated.filter(r => r.rating === 1)
+    .map(r => ({ artist: r.album?.artist, album: r.album?.album, year: r.album?.year, spotify_album_id: r.album?.spotify_album_id }));
 
   // Decade breakdown — only albums with a year
   const decadeCounts = new Map();
@@ -1928,6 +1984,34 @@ function renderSummary(rows) {
     </div>
   </div>`;
 
+  const renderOutlierList = (list, emptyLabel) => list.length
+    ? `<ul>${list.map(a => `<li>
+        <span class="artist">${escapeHtml(a.artist || '')}</span>
+        <span class="album">— ${escapeHtml(a.album || '')}</span>
+        ${a.year ? `<span class="year">${escapeHtml(String(a.year))}</span>` : ''}
+        ${a.spotify_album_id
+          ? `<a class="open" href="https://open.spotify.com/album/${encodeURIComponent(a.spotify_album_id)}" target="_blank" rel="noopener" title="Open in Spotify">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.59 14.41a.625.625 0 01-.86.21c-2.35-1.44-5.31-1.76-8.79-.97a.625.625 0 11-.28-1.22c3.81-.87 7.09-.5 9.72 1.12.3.18.39.57.21.86zm1.22-2.71a.78.78 0 01-1.07.26c-2.69-1.65-6.79-2.13-9.97-1.16a.78.78 0 11-.46-1.49c3.63-1.11 8.16-.58 11.24 1.32.37.23.49.71.26 1.07zm.11-2.83c-3.23-1.92-8.55-2.09-11.63-1.16a.94.94 0 11-.55-1.8c3.54-1.07 9.43-.87 13.13 1.33a.94.94 0 11-.95 1.63z"/></svg>
+            </a>`
+          : ''}
+      </li>`).join('')}</ul>`
+    : `<div class="empty" style="padding: 14px;">${emptyLabel}</div>`;
+
+  const outliersHtml = `<div class="chart-card wide">
+    <h3>Outliers</h3>
+    <div class="chart-sub">Your 10s and 1s — where you went all-in or hit the floor.</div>
+    <div class="outliers-grid">
+      <div class="outliers-col">
+        <h4>Loved · 10s (${tensList.length})</h4>
+        ${renderOutlierList(tensList, 'No perfect 10s yet.')}
+      </div>
+      <div class="outliers-col">
+        <h4>Hated · 1s (${onesList.length})</h4>
+        ${renderOutlierList(onesList, 'No 1s yet.')}
+      </div>
+    </div>
+  </div>`;
+
   const decadeHtml = `<div class="chart-card">
     <h3>By decade</h3>
     <div class="chart-sub">When the albums you rate were released.</div>
@@ -1993,13 +2077,17 @@ function renderSummary(rows) {
             · Loudness: <b style="color:var(--ink);">${loudN ? (loudSum / loudN).toFixed(1) + ' dB' : '—'}</b>
           </div>
         </div>`
-      : `<div class="empty">No Spotify features yet. Run enrichment from My Albums.</div>`
+      : `<div class="empty" style="font-size:12px;">
+          Audio features unavailable — Spotify removed this API for developer apps created after Nov 2024.<br>
+          Genres (above) still work and the taste profile compensates by leaning on them + your rating patterns.
+        </div>`
     }
   </div>`;
 
   container.innerHTML = statsHtml + `<div class="chart-grid">
     ${histHtml}
     ${decadeHtml}
+    ${outliersHtml}
     ${genresHtml}
     ${audioHtml}
     ${paceHtml}
