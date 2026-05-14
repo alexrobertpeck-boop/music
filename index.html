@@ -936,6 +936,24 @@
   </div>
 </div>
 
+<!-- ────── Edit track list modal ────── -->
+<div class="modal" id="tracks-edit-modal" hidden>
+  <div class="modal-backdrop"></div>
+  <div class="modal-content wide">
+    <button class="modal-close" id="tracks-edit-close" aria-label="Close">×</button>
+    <h2>Edit track list</h2>
+    <p style="color: var(--muted); font-size: 13px; margin: -8px 0 14px;">
+      One track per line, in playing order. Your per-track music + lyric notes
+      will be re-keyed off these names — if you change a name, notes against the
+      old name stay in the database but won't show against the new one.
+    </p>
+    <textarea id="tracks-edit-textarea" rows="14"
+      style="width: 100%; font: inherit; font-size: 14px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2); color: var(--ink); resize: vertical;"></textarea>
+    <div class="message" id="tracks-edit-message" hidden></div>
+    <button type="button" class="submit" id="tracks-edit-save" style="margin-top: 12px;">Save track list</button>
+  </div>
+</div>
+
 <!-- ────── New club session modal ────── -->
 <div class="modal" id="club-new-modal" hidden>
   <div class="modal-backdrop"></div>
@@ -2763,8 +2781,14 @@ function renderClubDetail() {
           `).join('')}
          </div>
          <div class="stamp">Track list generated ${new Date(tracksObj.generated_at).toLocaleString()} · ${escapeHtml(tracksObj.source || 'claude')}</div>
-         <button class="gen-btn regenerate" data-action="tracks">Refresh track list</button>`
-      : `<button class="gen-btn" data-action="tracks">Fetch track list</button>`
+         <div style="margin-top: 8px; display: flex; gap: 8px;">
+           <button class="gen-btn regenerate" data-action="tracks">Refresh from source</button>
+           <button class="gen-btn regenerate" data-action="edit-tracks">Edit manually</button>
+         </div>`
+      : `<div style="display: flex; gap: 8px;">
+           <button class="gen-btn" data-action="tracks">Fetch track list</button>
+           <button class="gen-btn regenerate" data-action="edit-tracks">Enter manually</button>
+         </div>`
     }
   </div>`;
 
@@ -2883,10 +2907,11 @@ function albumCoverHtml(album, size = 64) {
   return `<div class="album-cover placeholder" style="width:${size}px;height:${size}px;background:linear-gradient(135deg, hsl(${hue},45%,28%), hsl(${(hue+40)%360},55%,18%));font-size:${Math.round(size*0.45)}px;">${escapeHtml(initial)}</div>`;
 }
 
-/* ─── Generator dispatch (context / tracks) ──────────────────────────────*/
+/* ─── Generator dispatch (context / tracks / edit) ───────────────────────*/
 
 async function onClubGenerate(action, btn) {
   if (!currentClubSessionId) return;
+  if (action === 'edit-tracks') return openTracksEditModal();
   const endpoints = {
     research: { url: '/.netlify/functions/club-research', label: 'Generating context…' },
     tracks:   { url: '/.netlify/functions/club-tracks',   label: 'Fetching track list…' },
@@ -3031,6 +3056,60 @@ async function saveClubRating(sel, noteInput) {
   }
 }
 
+/* ─── Manual track-list edit modal ───────────────────────────────────────*/
+
+function openTracksEditModal() {
+  const session = clubSessionsCache.find(s => s.id === currentClubSessionId);
+  if (!session) return;
+  const tracks = session.tracks?.tracks || [];
+  $('#tracks-edit-textarea').value = tracks.join('\n');
+  setTracksEditMessage(null);
+  show($('#tracks-edit-modal'));
+  disableScroll(true);
+  setTimeout(() => $('#tracks-edit-textarea').focus(), 50);
+}
+function closeTracksEditModal() {
+  hide($('#tracks-edit-modal'));
+  disableScroll(false);
+}
+function setTracksEditMessage(text, kind = 'error') {
+  const el = $('#tracks-edit-message');
+  if (!text) { hide(el); return; }
+  el.textContent = text;
+  el.className = `message ${kind}`;
+  show(el);
+}
+
+async function handleTracksEditSave() {
+  if (!currentClubSessionId) return;
+  const raw = $('#tracks-edit-textarea').value || '';
+  const lines = raw.split('\n').map(s => s.trim()).filter(Boolean);
+  if (!lines.length) { setTracksEditMessage('Enter at least one track.'); return; }
+  const btn = $('#tracks-edit-save');
+  btn.disabled = true;
+  setTracksEditMessage('Saving…', 'info');
+  try {
+    const headers = { ...(await authHeaders()), 'Content-Type': 'application/json' };
+    const res = await fetch('/.netlify/functions/club-tracks', {
+      method: 'POST', headers,
+      body: JSON.stringify({ session_id: currentClubSessionId, manual_tracks: lines }),
+    });
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch { throw new Error(text.slice(0, 300) || `${res.status}`); }
+    if (!res.ok) throw new Error(data.error || `${res.status}`);
+    closeTracksEditModal();
+    clubSessionsLoaded = false;
+    await loadClubSessions();
+    renderClubDetail();
+  } catch (err) {
+    console.error('Tracks edit save failed:', err);
+    setTracksEditMessage(err.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 /* ─── Wire club tab UI ────────────────────────────────────────────────────*/
 
 function wireClubTab() {
@@ -3039,6 +3118,9 @@ function wireClubTab() {
   $('#club-new-modal-close').addEventListener('click', closeClubNewModal);
   $('#club-new-modal .modal-backdrop').addEventListener('click', closeClubNewModal);
   $('#club-new-form').addEventListener('submit', handleCreateSession);
+  $('#tracks-edit-close').addEventListener('click', closeTracksEditModal);
+  $('#tracks-edit-modal .modal-backdrop').addEventListener('click', closeTracksEditModal);
+  $('#tracks-edit-save').addEventListener('click', handleTracksEditSave);
 }
 
 /* ─── CSV import ───────────────────────────────────────────────────────────
