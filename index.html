@@ -3420,6 +3420,7 @@ function renderVinylList() {
       </div>
       <div class="actions">
         ${spotifyLink}
+        ${vinylBuyButtonHtml({ id: a.id, artist: a.artist, album: a.album })}
         <button class="move-btn" data-vinyl-action="move" data-id="${escapeHtml(v.id)}" data-to="${escapeHtml(otherStatus)}">${escapeHtml(moveLabel)}</button>
         <button data-vinyl-action="edit" data-id="${escapeHtml(v.id)}">Edit</button>
         <button class="danger" data-vinyl-action="delete" data-id="${escapeHtml(v.id)}">Delete</button>
