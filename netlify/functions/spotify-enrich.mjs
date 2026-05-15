@@ -185,6 +185,21 @@ async function handleManualConfirm(req, supaUrl, serviceKey) {
   const album = rows?.[0];
   if (!album) return jsonError(404, 'Album not in catalog.');
 
+  // Pre-check: is the chosen Spotify ID already bound to a DIFFERENT catalog
+  // row? The albums.spotify_album_id UNIQUE constraint would surface this as
+  // a 23505 / 409 with no useful context. Catching it ourselves lets us
+  // return a structured response the frontend can render as an actionable
+  // "this Spotify album is already linked to <other row>" message.
+  const conflictRows = await supabaseSelect(supaUrl, serviceKey, 'albums',
+    `spotify_album_id=eq.${encodeURIComponent(spotify_album_id)}&id=neq.${album_id}&select=id,artist,album,year`);
+  if (conflictRows?.length) {
+    const c = conflictRows[0];
+    return jsonError(409, `This Spotify album is already linked to "${c.artist} — ${c.album}" in your catalog. Delete that entry from My Albums first, then re-confirm here.`, {
+      error_code: 'duplicate_spotify_id',
+      conflicting_row: c,
+    });
+  }
+
   const patch = { spotify_album_id, match_status: 'manual' };
 
   // Optionally overwrite the typo-laden artist/album name with the canonical

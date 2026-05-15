@@ -1928,7 +1928,11 @@ async function runEnrich() {
             pendingManual.push(r);
           } else if (r.status === 'no_match') {
             noMatch++;
-            enrichLog(`· no Spotify result for ${r.artist} — ${r.album}`);
+            // Surface no-match albums in Confirm Matches too — user can paste
+            // a Spotify URL for any Spotify search couldn't find via fuzzy
+            // text alone (typos like "Whtever People Say...").
+            pendingManual.push({ ...r, candidates: [] });
+            enrichLog(`· no Spotify search result for ${r.artist} — ${r.album} (paste a URL to match)`);
           } else if (r.status === 'error') {
             errors++;
             enrichLog(`✗ ${r.artist} — ${r.album}: ${r.message}`, 'err');
@@ -1981,42 +1985,95 @@ function renderConfirmList() {
   }
   summary.innerHTML = `<strong>${pendingManual.length}</strong> ${pendingManual.length === 1 ? 'album needs' : 'albums need'} a manual pick. Click the Spotify release that matches your album, or skip.`;
 
-  list.innerHTML = pendingManual.map((p, idx) => `
-    <div class="candidate-card" data-idx="${idx}">
+  list.innerHTML = pendingManual.map((p, idx) => {
+    const hasCandidates = (p.candidates || []).length > 0;
+    const candidatesHtml = hasCandidates
+      ? `<div class="candidate-grid">
+          ${p.candidates.map((c, ci) => `
+            <button type="button" class="candidate" data-idx="${idx}" data-cidx="${ci}">
+              ${c.cover_url
+                ? `<img src="${escapeHtml(c.cover_url)}" alt="" loading="lazy">`
+                : `<div style="width:100%;aspect-ratio:1/1;background:var(--surface-2);border-radius:4px;"></div>`}
+              <div class="name">
+                <b>${escapeHtml(c.album)}</b>
+                <span>${escapeHtml(c.artist)}${c.year ? ' · ' + escapeHtml(String(c.year)) : ''}</span>
+              </div>
+            </button>
+          `).join('')}
+        </div>`
+      : `<div class="empty-state" style="margin: 8px 0 12px; padding: 10px; background: var(--surface-2); border-radius: 6px; color: var(--muted); font-size: 13px;">
+          Spotify search didn't find this row — likely a typo in the saved text. Open the album in Spotify, hit Share → Copy link, and paste below.
+        </div>`;
+
+    return `<div class="candidate-card" data-idx="${idx}">
       <div class="source">
         Your row: <strong>${escapeHtml(p.artist)}</strong> — ${escapeHtml(p.album)}
         ${p.year ? ` (${escapeHtml(String(p.year))})` : ''}
       </div>
-      <div class="candidate-grid">
-        ${(p.candidates || []).map((c, ci) => `
-          <button type="button" class="candidate" data-idx="${idx}" data-cidx="${ci}">
-            ${c.cover_url
-              ? `<img src="${escapeHtml(c.cover_url)}" alt="" loading="lazy">`
-              : `<div style="width:100%;aspect-ratio:1/1;background:#f1ede5;border-radius:4px;"></div>`}
-            <div class="name">
-              <b>${escapeHtml(c.album)}</b>
-              <span>${escapeHtml(c.artist)}${c.year ? ' · ' + escapeHtml(String(c.year)) : ''}</span>
-            </div>
-          </button>
-        `).join('')}
+      ${candidatesHtml}
+      <div style="display: flex; gap: 8px; align-items: center; margin-top: 10px;">
+        <input type="text" class="url-input" data-idx="${idx}"
+          placeholder="Paste Spotify URL or 22-char album ID"
+          style="flex: 1; font: inherit; font-size: 13px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2); color: var(--ink);">
+        <button type="button" class="skip-btn" data-url-confirm="${idx}" style="background: var(--accent); color: #fff; border: 0;">Confirm URL</button>
       </div>
-      <button class="skip-btn" data-skip="${idx}">Skip — none match</button>
-    </div>
-  `).join('');
+      <button class="skip-btn" data-skip="${idx}" style="margin-top: 8px;">Skip — sort this out later</button>
+    </div>`;
+  }).join('');
 
   list.querySelectorAll('.candidate').forEach(btn => {
     btn.addEventListener('click', () => onCandidatePick(Number(btn.dataset.idx), Number(btn.dataset.cidx)));
   });
-  list.querySelectorAll('.skip-btn').forEach(btn => {
+  list.querySelectorAll('.skip-btn[data-skip]').forEach(btn => {
     btn.addEventListener('click', () => onCandidateSkip(Number(btn.dataset.skip)));
   });
+  list.querySelectorAll('[data-url-confirm]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = Number(btn.dataset.urlConfirm);
+      const input = list.querySelector(`.url-input[data-idx="${idx}"]`);
+      onUrlPaste(idx, input?.value || '');
+    });
+  });
+}
+
+/* Accepts a Spotify full URL (https://open.spotify.com/album/<id>?si=…),
+   spotify:album: URI, or the bare 22-char ID; returns the ID or null. */
+function extractSpotifyAlbumId(input) {
+  if (!input) return null;
+  const s = String(input).trim();
+  const urlMatch = /open\.spotify\.com\/album\/([A-Za-z0-9]{22})/.exec(s);
+  if (urlMatch) return urlMatch[1];
+  const uriMatch = /^spotify:album:([A-Za-z0-9]{22})$/.exec(s);
+  if (uriMatch) return uriMatch[1];
+  if (/^[A-Za-z0-9]{22}$/.test(s)) return s;
+  return null;
+}
+
+async function onUrlPaste(idx, raw) {
+  const entry = pendingManual[idx];
+  if (!entry) return;
+  const spotifyId = extractSpotifyAlbumId(raw);
+  if (!spotifyId) {
+    alert(`Couldn't read a Spotify album ID from "${raw.slice(0, 80)}".\n\nPaste the full Share-link URL, a spotify:album: URI, or the 22-character ID.`);
+    return;
+  }
+  await confirmMatchById(idx, spotifyId);
 }
 
 async function onCandidatePick(idx, cidx) {
   const entry = pendingManual[idx];
   const cand = entry?.candidates?.[cidx];
   if (!entry || !cand) return;
-  const card = $(`.candidate-card[data-idx="${idx}"]`);
+  await confirmMatchById(idx, cand.spotify_id);
+}
+
+/* Shared confirm path used by both candidate-card clicks and URL paste.
+   Handles the duplicate_spotify_id (409) response with a readable error
+   that points the user at the conflicting catalog row. */
+async function confirmMatchById(idx, spotifyId) {
+  const entry = pendingManual[idx];
+  if (!entry) return;
+  const card = document.querySelector(`.candidate-card[data-idx="${idx}"]`);
   if (card) card.style.opacity = '0.5';
 
   const overwrite = $('#confirm-overwrite-toggle').checked;
@@ -2028,11 +2085,24 @@ async function onCandidatePick(idx, cidx) {
       headers,
       body: JSON.stringify({
         album_id: entry.album_id,
-        spotify_album_id: cand.spotify_id,
+        spotify_album_id: spotifyId,
         overwrite_metadata: overwrite,
       }),
     });
-    if (!res.ok) throw new Error(`${res.status}: ${(await res.text()).slice(0, 200)}`);
+    if (!res.ok) {
+      const text = await res.text();
+      let data; try { data = JSON.parse(text); } catch { data = null; }
+      if (res.status === 409 && data?.error_code === 'duplicate_spotify_id') {
+        const c = data.conflicting_row;
+        if (card) card.style.opacity = '1';
+        alert(
+          `This Spotify album is already linked to "${c.artist} — ${c.album}" in your catalog (id ${c.id.slice(0,8)}…).\n\n` +
+          `To use it for "${entry.artist} — ${entry.album}", delete that other entry from My Albums first, then re-confirm here.`
+        );
+        return;
+      }
+      throw new Error(data?.error || `${res.status}: ${text.slice(0, 200)}`);
+    }
     pendingManual.splice(idx, 1);
     renderConfirmList();
     if (pendingManual.length === 0) await loadAlbums();
