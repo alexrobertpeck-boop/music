@@ -1035,6 +1035,10 @@
     <button class="modal-close" id="enrich-modal-close" aria-label="Close">×</button>
     <h2>Spotify enrichment</h2>
     <div class="import-summary" id="enrich-summary">Counting unmatched albums…</div>
+    <label class="overwrite-toggle" style="margin-top: 8px;">
+      <input type="checkbox" id="enrich-rerun-all">
+      Refresh every matched album too (re-pulls covers, useful after a schema change)
+    </label>
     <div class="progress-bar" id="enrich-progress" hidden><div class="fill" style="width:0"></div></div>
     <div class="progress-label" id="enrich-progress-label" hidden></div>
     <div class="import-log" id="enrich-log" hidden></div>
@@ -1750,7 +1754,7 @@ function wireAlbumsTab() {
    land in a Confirm Matches modal where the user picks the right Spotify
    release. */
 
-const ENRICH_BATCH = 6;
+const ENRICH_BATCH = 3;
 let enrichRunning = false;
 let enrichState = 'idle';   // 'idle' | 'running' | 'done'
 let pendingManual = [];     // [{ album_id, artist, album, year, candidates }]
@@ -1798,13 +1802,13 @@ async function openEnrichModal() {
     return;
   }
 
-  // Two categories need enrichment:
-  //   (1) Catalog rows without a Spotify ID (still need a search + match).
-  //   (2) Matched rows without a spotify_features row (e.g. earlier runs that
-  //       failed on the audio-features 403 before genres got written).
+  // Three categories of work, recomputed when "rerun all" toggles:
+  //   (1) Catalog rows without a Spotify ID — need search + match.
+  //   (2) Matched rows without a spotify_features row — never enriched.
+  //   (3) (opt-in) Every matched row — covers + tracks re-pulled.
   const [catalogRes, featuresRes] = await Promise.all([
     sb.from('albums')
-      .select('id, artist, album, year, match_status, spotify_album_id')
+      .select('id, artist, album, year, match_status, spotify_album_id, cover_url')
       .order('artist', { ascending: true })
       .limit(2000),
     sb.from('spotify_features').select('album_id').limit(5000),
@@ -1818,27 +1822,41 @@ async function openEnrichModal() {
   const catalog = catalogRes.data || [];
   const needsSearch = catalog.filter(r => !r.spotify_album_id);
   const needsFeaturesOnly = catalog.filter(r => r.spotify_album_id && !haveFeatures.has(r.id));
-  enrichTargetIds = [...needsFeaturesOnly, ...needsSearch].map(r => r.id);
+  const alreadyMatched = catalog.filter(r => r.spotify_album_id);
 
-  if (enrichTargetIds.length === 0) {
-    $('#enrich-summary').innerHTML = `Every album in your catalog is matched and has Spotify metadata. Nothing to do.`;
-    $('#enrich-start-btn').textContent = 'Close';
+  const recomputeTarget = () => {
+    const rerunAll = $('#enrich-rerun-all').checked;
+    if (rerunAll) {
+      enrichTargetIds = [...alreadyMatched, ...needsSearch].map(r => r.id);
+    } else {
+      enrichTargetIds = [...needsFeaturesOnly, ...needsSearch].map(r => r.id);
+    }
+    if (enrichTargetIds.length === 0) {
+      $('#enrich-summary').innerHTML = `Every album in your catalog is matched and enriched. Nothing to do — tick the box above to force a re-pull (useful for grabbing fresh covers).`;
+      $('#enrich-start-btn').textContent = 'Close';
+      $('#enrich-start-btn').disabled = false;
+      enrichState = 'done';
+      return;
+    }
+    // Rough pace estimate: each batch of ENRICH_BATCH albums takes ~2s
+    // (1 Spotify call + 2s between-batch pause). Plus a fixed ~3s overhead
+    // per call for Netlify cold-start and Supabase writes.
+    const totalSecs = Math.ceil(enrichTargetIds.length / ENRICH_BATCH * 3);
+    $('#enrich-summary').innerHTML = `
+      <strong>${enrichTargetIds.length}</strong> albums to process:
+      ${needsSearch.length} new (search + match),
+      ${rerunAll ? alreadyMatched.length : needsFeaturesOnly.length} matched (re-pull cover + metadata).<br>
+      Estimated time: ~${Math.max(1, Math.ceil(totalSecs / 60))} minute${totalSecs > 60 ? 's' : ''}, paced to stay polite with Spotify.
+      <div style="font-size:12px;color:var(--muted);margin-top:6px;">
+        New dev apps no longer get audio features or artist genres from Spotify — only cover art + track metadata will populate.
+      </div>
+    `;
+    $('#enrich-start-btn').textContent = 'Start enrichment';
     $('#enrich-start-btn').disabled = false;
-    enrichState = 'done';
-    return;
-  }
-  $('#enrich-summary').innerHTML = `
-    <strong>${enrichTargetIds.length}</strong> albums need enrichment:
-    ${needsSearch.length} new to Spotify (will search + match),
-    ${needsFeaturesOnly.length} already matched but missing metadata (will just refresh).<br>
-    Each takes ~1 second.
-    <div style="font-size:12px;color:var(--muted);margin-top:6px;">
-      Note: Spotify deprecated audio features for new dev apps in Nov 2024, so only <em>genres</em> will populate.
-      Tempo / energy / valence stay blank.
-    </div>
-  `;
-  $('#enrich-start-btn').disabled = false;
-  $('#enrich-start-btn').textContent = 'Start enrichment';
+    enrichState = 'idle';
+  };
+  recomputeTarget();
+  $('#enrich-rerun-all').addEventListener('change', recomputeTarget);
 }
 
 function closeEnrichModal() {
@@ -1923,9 +1941,11 @@ async function runEnrich() {
     }
     processed += chunk.length;
     setEnrichProgress(processed, enrichTargetIds.length);
-    // Pause between batches to keep Spotify rate limits happy. Higher than
-    // before because the cumulative 30-req/s budget can drain across batches.
-    await new Promise(r => setTimeout(r, 800));
+    // 2-second pause between batches. With 3 albums per batch each making 1
+    // Spotify call, peak rate stays around 1.5 req/s — well below anything
+    // Spotify gets cranky about. Past runs went too aggressive and tripped
+    // a 20-hour app cooldown; be a polite citizen.
+    await new Promise(r => setTimeout(r, 2000));
   }
 
   enrichLog(`✓ Done. Auto-confirmed: ${autoConfirmed}. Needs review: ${needsManual}. No match: ${noMatch}. Errors: ${errors}.`,

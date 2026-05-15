@@ -20,11 +20,14 @@ import {
   getEnv, jsonOk, jsonError,
   verifyHouseholdUser,
   supabaseSelect, supabaseUpdate, supabaseUpsert,
-  searchAlbumCandidates, getAlbumDetails, getArtistGenres, spotifyFetch,
-  aggregateFeatures, isCloseMatch,
+  searchAlbumCandidates, getAlbumDetails, spotifyFetch,
+  isCloseMatch,
 } from '../lib/spotify-shared.mjs';
 
-const MAX_BATCH = 8;   // smaller batches → fewer cumulative Spotify rate-limit hits per Netlify invocation
+// Lower parallelism — one Spotify call per album now, so a batch of 4 means
+// 4 simultaneous calls instead of the 24+ we used to fire (4 × 3-4 endpoints).
+// Keeps us well under Spotify's per-app rate budget.
+const MAX_BATCH = 4;
 
 export default async (req) => {
   const supaUrl = getEnv('SUPABASE_URL');
@@ -212,50 +215,46 @@ async function handleManualConfirm(req, supaUrl, serviceKey) {
 // ─── Feature pull + upsert ─────────────────────────────────────────────────
 
 async function enrichFeatures(album, supaUrl, serviceKey) {
+  // ONE Spotify call per album now — `/v1/albums/{id}` returns name, artists,
+  // release_date, total_tracks, tracks.items[], AND images[]. Everything else
+  // we used to hit is dead for new dev apps:
+  //   - /audio-features → 403 (deprecated for apps post Nov 2024)
+  //   - /artists/{id}.genres → stripped from the response payload
+  // So we just grab the album doc, save cover_url, and call it done. Lower
+  // call count = lower rate-limit risk per re-enrich pass.
   const details = await getAlbumDetails(album.spotify_album_id);
   const trackIds = (details.tracks?.items || []).map(t => t.id).filter(Boolean);
+  const coverUrl = details.images?.[0]?.url || null;
 
-  // Audio features endpoint was deprecated for new dev apps in Nov 2024 and
-  // returns 403 every time, eating rate limit + adding latency for no gain.
-  // We skip the call entirely now. The schema column stays — older apps may
-  // still populate it if someone clones this with grandfathered creds.
-
-  // Primary artist drives genre tags. Some albums (especially compilations)
-  // have multiple artists; we try the first, and if it returns empty we walk
-  // the rest looking for any with genres.
-  let genres = [];
-  let triedArtistIds = [];
-  for (const a of (details.artists || [])) {
-    if (!a?.id) continue;
-    triedArtistIds.push(a.id);
-    try {
-      const g = await getArtistGenres(a.id);
-      if (g && g.length) { genres = g; break; }
-    } catch (e) {
-      console.warn(`artist ${a.id} fetch failed: ${e.message}`);
-    }
-  }
-  console.log(`enrich ${album.id} (${album.artist} — ${album.album}) → artists=[${triedArtistIds.join(',')}] genres=${JSON.stringify(genres)}`);
-
-  const agg = aggregateFeatures(details, []);
-
+  // Persist a spotify_features row (kept for parity with the schema and so
+  // re-runs can detect "enriched"). All numeric audio fields are null —
+  // Spotify won't give them to our app.
   const row = {
     album_id: album.id,
-    danceability: null,
-    energy: null,
-    valence: null,
-    acousticness: null,
-    instrumentalness: null,
-    tempo: null,
-    loudness: null,
-    key: null,
-    genres,
-    track_count: agg.track_count ?? trackIds.length,
-    raw: { tried_artist_ids: triedArtistIds },
+    danceability: null, energy: null, valence: null,
+    acousticness: null, instrumentalness: null,
+    tempo: null, loudness: null, key: null,
+    genres: [],
+    track_count: trackIds.length,
+    raw: {
+      spotify_album_meta: {
+        name: details.name,
+        total_tracks: details.total_tracks,
+        release_date: details.release_date,
+      },
+    },
     fetched_at: new Date().toISOString(),
   };
   await supabaseUpsert(supaUrl, serviceKey, 'spotify_features', row, 'album_id');
-  return row;
+
+  // Cover URL goes on the albums row so every surface (My Albums, Outliers,
+  // Album Club, Vinyl, Recs) renders the same image without joining
+  // spotify_features.
+  if (coverUrl) {
+    await supabaseUpdate(supaUrl, serviceKey, 'albums', `id=eq.${album.id}`, { cover_url: coverUrl });
+  }
+
+  return { ...row, cover_url: coverUrl };
 }
 
 // ─── Result shapers ────────────────────────────────────────────────────────
