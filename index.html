@@ -953,7 +953,6 @@
         <button data-vinyl-view="owned" class="active">Owned <span class="count" id="vinyl-count-owned"></span></button>
         <button data-vinyl-view="wishlist">Wishlist <span class="count" id="vinyl-count-wishlist"></span></button>
       </div>
-      <button type="button" class="secondary-btn" id="vinyl-backfill-btn" title="Adds any album you've rated 8+ to your wishlist (if it isn't already there).">Backfill from 8+ rated</button>
     </div>
     <div id="vinyl-list-container"><div class="loading">Loading…</div></div>
   </section>
@@ -3604,63 +3603,6 @@ function wireVinylTab() {
   document.querySelectorAll('#vinyl-toggle button').forEach(b => {
     b.addEventListener('click', () => setVinylView(b.dataset.vinylView));
   });
-  $('#vinyl-backfill-btn').addEventListener('click', runVinylBackfill);
-}
-
-/* Backfill from 8+ rated personal listens: add any rated 8 or higher that
-   isn't already in vinyl_records to the wishlist. One-shot. Idempotent —
-   relies on the unique (user_id, album_id) constraint to skip duplicates. */
-async function runVinylBackfill() {
-  if (!currentUser) return;
-  const btn = $('#vinyl-backfill-btn');
-  if (!confirm("Add every album you've rated 8 or higher to your vinyl wishlist (skipping any already in your vinyl)?")) return;
-  btn.disabled = true;
-  const originalText = btn.textContent;
-  btn.textContent = 'Backfilling…';
-
-  try {
-    // 1) All albums rated 8+ by this user.
-    const { data: rated, error: rErr } = await sb
-      .from('personal_ratings')
-      .select('rating, album_id')
-      .eq('user_id', currentUser.id)
-      .gte('rating', 8);
-    if (rErr) throw new Error(rErr.message);
-
-    // 2) Already-tracked vinyl (owned OR wishlist) for this user.
-    const { data: existing, error: vErr } = await sb
-      .from('vinyl_records')
-      .select('album_id')
-      .eq('user_id', currentUser.id);
-    if (vErr) throw new Error(vErr.message);
-    const haveVinyl = new Set((existing || []).map(r => r.album_id));
-
-    const toAdd = (rated || []).filter(r => !haveVinyl.has(r.album_id));
-    if (toAdd.length === 0) {
-      alert("All your 8+ rated albums are already in your vinyl. Nothing to add.");
-      return;
-    }
-
-    const rows = toAdd.map(r => ({
-      user_id: currentUser.id,
-      album_id: r.album_id,
-      status: 'wishlist',
-      notes: `Auto-added: rated ${r.rating}/10`,
-    }));
-    const { error: insErr } = await sb.from('vinyl_records').insert(rows);
-    if (insErr) throw new Error(insErr.message);
-
-    vinylLoaded = false;
-    await loadVinyl();
-    setVinylView('wishlist');     // jump to the wishlist so the new entries are visible
-    alert(`Added ${toAdd.length} album${toAdd.length === 1 ? '' : 's'} to your wishlist.`);
-  } catch (err) {
-    console.error('Backfill failed:', err);
-    alert(`Couldn't backfill: ${err.message}`);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = originalText;
-  }
 }
 
 /* ─── Wire club tab UI ────────────────────────────────────────────────────*/
