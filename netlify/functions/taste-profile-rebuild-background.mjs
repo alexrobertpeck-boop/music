@@ -16,7 +16,7 @@
 
 import {
   getEnv,
-  verifyHouseholdUser,
+  verifyAuthUser,
   supabaseSelect, supabaseUpsert,
 } from '../lib/spotify-shared.mjs';
 import { callClaude, parseClaudeJson, MODEL_SONNET } from '../lib/claude-shared.mjs';
@@ -38,7 +38,7 @@ export default async (req) => {
   // We still authenticate the request — even for a background function, we
   // don't want random callers triggering Claude spend.
   let userId;
-  try { userId = await verifyHouseholdUser(req, supaUrl, anonKey, serviceKey); }
+  try { userId = await verifyAuthUser(req, supaUrl, anonKey, serviceKey); }
   catch (e) {
     console.error('rebuild: auth failed', e);
     return new Response(`auth: ${e.message}`, { status: 401 });

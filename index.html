@@ -291,6 +291,128 @@
     margin-top: 10px; display: flex; align-items: center; gap: 10px;
   }
 
+  /* ─── Quick-reaction buttons on rec cards ─── */
+  .rec-card .quick-reacts {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    margin-left: auto;
+  }
+  .quick-react-btn {
+    background: var(--surface-2); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 5px 9px; font-size: 12px; font-weight: 500; cursor: pointer;
+    transition: background 0.1s, color 0.1s, border-color 0.1s;
+  }
+  .quick-react-btn:hover { background: var(--surface); border-color: var(--accent-soft); }
+  .quick-react-btn[disabled] { opacity: 0.5; cursor: default; }
+  .quick-react-btn.love    { color: var(--accent); border-color: var(--accent-soft); }
+  .quick-react-btn.like    { color: var(--good);   border-color: #2e4a36; }
+  .quick-react-btn.meh     { color: var(--muted); }
+  .quick-react-btn.dislike { color: #c98a4a; border-color: #5a4515; }
+  .quick-react-btn.hate    { color: var(--err);    border-color: #5a2a2a; }
+  .rec-card.rated .quick-reacts,
+  .rec-card.rated .add-list-btn { display: none; }
+  .rec-card .rated-tag {
+    color: var(--good); font-size: 13px; font-weight: 500;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  @media (max-width: 600px) {
+    .rec-card .add-row { flex-wrap: wrap; }
+    .rec-card .quick-reacts { margin-left: 0; width: 100%; }
+  }
+
+  /* ─── Onboarding ─── */
+  .onboarding-wrap { max-width: 720px; margin: 0 auto; }
+  .onboarding-step-meta {
+    color: var(--muted); font-size: 13px; margin-bottom: 6px;
+    text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500;
+  }
+  .onboarding-intro h2 { margin: 0 0 8px; }
+  .onboarding-intro .sub { color: var(--muted); margin: 0 0 24px; line-height: 1.5; }
+  .onboarding-question { margin-bottom: 22px; }
+  .onboarding-question label {
+    display: block; font-size: 14px; font-weight: 500;
+    margin-bottom: 8px; color: var(--ink);
+  }
+  .onboarding-question .sub {
+    color: var(--muted); font-size: 13px; margin: 0 0 10px;
+  }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    background: var(--surface-2); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 999px;
+    padding: 7px 14px; font-size: 13px; cursor: pointer;
+    transition: background 0.1s, color 0.1s, border-color 0.1s;
+  }
+  .chip:hover { border-color: var(--accent-soft); }
+  .chip.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .onboarding-progress {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px 16px; margin-bottom: 16px;
+    display: flex; align-items: center; gap: 12px;
+    position: sticky; top: 0; z-index: 5;
+  }
+  .onboarding-progress .bar {
+    flex: 1; height: 6px; background: var(--surface-2);
+    border-radius: 999px; overflow: hidden;
+  }
+  .onboarding-progress .bar-fill {
+    height: 100%; background: var(--accent); border-radius: 999px;
+    transition: width 0.2s;
+  }
+  .onboarding-progress .label {
+    font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .onboarding-progress .unlock { color: var(--good); font-weight: 500; }
+  .quiz-grid {
+    display: grid; gap: 14px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+  .quiz-card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px;
+    display: flex; flex-direction: column; gap: 12px;
+    transition: opacity 0.2s, background 0.2s;
+  }
+  .quiz-card.rated { opacity: 0.55; }
+  .quiz-card .head { display: flex; gap: 12px; align-items: flex-start; }
+  .quiz-card .cover {
+    flex-shrink: 0; width: 56px; height: 56px; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; font-weight: 600; color: rgba(255,255,255,0.85);
+  }
+  .quiz-card .meta { min-width: 0; flex: 1; }
+  .quiz-card .artist { font-weight: 600; font-size: 14px; color: var(--ink); }
+  .quiz-card .album { color: var(--ink); font-size: 14px; word-break: break-word; }
+  .quiz-card .year { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .quiz-card .reactions {
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .quiz-card .reactions button {
+    flex: 1; min-width: 60px;
+    background: var(--surface-2); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 8px 6px; font-size: 13px; font-weight: 500; cursor: pointer;
+    line-height: 1.2; transition: background 0.1s, color 0.1s, border-color 0.1s;
+  }
+  .quiz-card .reactions button:hover { background: var(--surface); }
+  .quiz-card .reactions button.selected {
+    background: var(--accent); color: #fff; border-color: var(--accent);
+  }
+  .quiz-card .reactions button[disabled] { cursor: default; }
+  .quiz-card .reactions button.dunno   { color: var(--muted); }
+  .quiz-card.rated .reactions button:not(.selected) { display: none; }
+  .quiz-card .ratemsg { font-size: 12px; color: var(--muted); min-height: 14px; }
+  .recs-locked {
+    padding: 28px 24px; text-align: center; color: var(--muted);
+    border: 1px dashed var(--line); border-radius: 8px; background: var(--surface);
+  }
+  .recs-locked strong { color: var(--ink); display: block; margin-bottom: 6px; }
+  .recs-locked button {
+    margin-top: 14px; background: var(--accent); color: #fff;
+    border: 0; border-radius: 6px; padding: 9px 16px; font-weight: 500;
+  }
+
   /* ─── Summary tab ─── */
   .stat-grid {
     display: grid; gap: 12px;
@@ -827,9 +949,10 @@
 </header>
 
 <nav class="tabs" id="tabs" hidden>
+  <button data-tab="onboarding" hidden>Get started</button>
   <button data-tab="albums" class="active">My Albums</button>
   <button data-tab="recs">Recommendations</button>
-  <button data-tab="club">Album Club</button>
+  <button data-tab="club" hidden>Album Club</button>
   <button data-tab="vinyl">Vinyl</button>
   <button data-tab="summary">Summary</button>
 </nav>
@@ -842,6 +965,55 @@
     <p>Log in to see your collection.</p>
     <button class="add-btn" id="gate-login-btn">Log in</button>
   </div>
+
+  <!-- Onboarding tab (visible until completed) -->
+  <section id="tab-onboarding" hidden>
+    <div class="onboarding-wrap">
+      <!-- Step 1: three intro questions -->
+      <div id="onboarding-intro" class="onboarding-intro">
+        <div class="onboarding-step-meta">Step 1 of 2</div>
+        <h2>Tell us a bit about your taste</h2>
+        <p class="sub">Three quick questions, then a 25-album rating round. Rate at least 15 and Recommendations unlocks. Save and come back any time.</p>
+
+        <div class="onboarding-question">
+          <label>Genres you reach for</label>
+          <div class="sub">Pick as many as fit. You can always change your mind later.</div>
+          <div class="chip-row" id="onb-genres"></div>
+        </div>
+
+        <div class="onboarding-question">
+          <label>Eras that resonate</label>
+          <div class="sub">Decades you keep coming back to.</div>
+          <div class="chip-row" id="onb-eras"></div>
+        </div>
+
+        <div class="onboarding-question">
+          <label>One artist that captures your taste (optional)</label>
+          <div class="sub">A band or artist as an anchor — leave blank if nothing comes to mind.</div>
+          <input type="text" id="onb-anchor" maxlength="200" placeholder="e.g. Radiohead, Aretha Franklin, Burial">
+        </div>
+
+        <div class="message" id="onb-intro-message" hidden></div>
+        <button type="button" class="submit" id="onb-intro-submit">Build my 25 album quiz →</button>
+      </div>
+
+      <!-- Step 2: quiz cards -->
+      <div id="onboarding-quiz" hidden>
+        <div class="onboarding-step-meta">Step 2 of 2</div>
+        <h2>Rate these 25 albums</h2>
+        <p class="sub">React to each one. <strong>Love</strong> = 9, <strong>Like</strong> = 7, <strong>Meh</strong> = 5, <strong>Dislike</strong> = 3, <strong>Hate</strong> = 1. <em>Don't know</em> skips with no signal. The more contrarian your picks, the better the recommender gets.</p>
+
+        <div class="onboarding-progress">
+          <div class="bar"><div class="bar-fill" id="onb-bar-fill" style="width: 0%;"></div></div>
+          <div class="label" id="onb-progress-label">0 / 25</div>
+        </div>
+
+        <div class="quiz-grid" id="onb-quiz-grid"></div>
+
+        <div id="onboarding-quiz-message" style="margin-top: 18px;"></div>
+      </div>
+    </div>
+  </section>
 
   <!-- Albums tab -->
   <section id="tab-albums" hidden>
@@ -1230,6 +1402,9 @@ let currentUser = null;            // {id, email} or null
 let albumsCache = [];              // joined rows: {album_id, artist, album, year, rating, notes, rated_at, match_status}
 let albumsLoaded = false;
 let userOwnedVinyl = new Set();    // album_ids the user owns on vinyl — drives the "buy on vinyl" button visibility
+let onboardingStatus = null;       // 'not-started' | 'in-progress' | 'complete'
+let onboardingQuiz = null;         // {intro_answers, albums:[], ratings:Map<idx,rating>}
+let isHouseholdMember = false;     // gates Club tab visibility
 
 /* ─── auth area + modal ────────────────────────────────────────────────────*/
 let authMode = 'login';
@@ -1348,20 +1523,41 @@ sb.auth.onAuthStateChange((_event, session) => {
   renderAuthArea(user);
 });
 
-function onUserResolved(user) {
+async function onUserResolved(user) {
   currentUser = user;
   renderAuthArea(user);
   if (user) {
-    show($('#tabs'));
     hide($('#gate'));
-    switchTab('albums');
+
+    // Determine onboarding state + household membership before deciding
+    // which tab to land on. Both queries are fast (single rows) — we await
+    // them so the nav buttons don't flicker.
+    const [statusResult, householdRow] = await Promise.all([
+      checkOnboardingStatus(),
+      checkHouseholdMembership(),
+    ]);
+    onboardingStatus = statusResult;
+    isHouseholdMember = householdRow;
+
+    // Tab button visibility.
+    const onbBtn = document.querySelector('#tabs button[data-tab="onboarding"]');
+    const clubBtn = document.querySelector('#tabs button[data-tab="club"]');
+    if (onbBtn) onbBtn.hidden = (onboardingStatus === 'complete');
+    if (clubBtn) clubBtn.hidden = !isHouseholdMember;
+
+    show($('#tabs'));
+
+    // Default landing tab: onboarding if not done, otherwise albums.
+    const initialTab = (onboardingStatus !== 'complete') ? 'onboarding' : 'albums';
+    switchTab(initialTab);
+
+    // Background warm-ups — non-blocking.
     loadAlbums();
-    // Load the owned-vinyl set in the background; once it arrives, re-render
-    // My Albums so the buy-on-vinyl button appears on the right rows.
     loadOwnedVinylSet().then(() => { if (albumsLoaded) renderAlbumList(); });
   } else {
     hide($('#tabs'));
     show($('#gate'));
+    hide($('#tab-onboarding'));
     hide($('#tab-albums'));
     hide($('#tab-recs'));
     hide($('#tab-summary'));
@@ -1377,12 +1573,63 @@ function onUserResolved(user) {
     vinylLoaded = false;
     vinylCache = [];
     userOwnedVinyl = new Set();
+    onboardingStatus = null;
+    onboardingQuiz = null;
+    isHouseholdMember = false;
+  }
+}
+
+// Returns 'not-started' | 'in-progress' | 'complete'. A user with ≥15
+// rated personal_ratings rows is treated as complete even without an
+// onboarding_quizzes row — this covers Alex (pre-onboarding ratings).
+async function checkOnboardingStatus() {
+  if (!currentUser) return 'not-started';
+  try {
+    const [{ count: ratedCount }, { data: quizRow }] = await Promise.all([
+      sb.from('personal_ratings')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', currentUser.id)
+        .not('rating', 'is', null),
+      sb.from('onboarding_quizzes')
+        .select('intro_answers, generated_albums, completed_at')
+        .eq('user_id', currentUser.id)
+        .maybeSingle(),
+    ]);
+    if ((ratedCount || 0) >= 15) return 'complete';
+    if (quizRow?.completed_at) return 'complete';
+    if (quizRow) return 'in-progress';
+    return 'not-started';
+  } catch (err) {
+    console.warn('Onboarding status check failed; assuming not-started:', err);
+    return 'not-started';
+  }
+}
+
+// Returns true if the user is in household_members. RLS allows any household
+// member to read the table; non-members get 0 rows. Used for Club tab gating.
+async function checkHouseholdMembership() {
+  if (!currentUser) return false;
+  try {
+    const { data, error } = await sb
+      .from('household_members')
+      .select('user_id')
+      .eq('user_id', currentUser.id)
+      .maybeSingle();
+    if (error) return false;
+    return !!data;
+  } catch {
+    return false;
   }
 }
 
 /* ─── tab switcher ────────────────────────────────────────────────────────*/
 function switchTab(tabId) {
-  const tabs = ['albums', 'recs', 'club', 'vinyl', 'summary'];
+  // Block Club for non-household users; redirect to Albums.
+  if (tabId === 'club' && !isHouseholdMember) tabId = 'albums';
+  // Block Onboarding once complete; redirect to Albums.
+  if (tabId === 'onboarding' && onboardingStatus === 'complete') tabId = 'albums';
+
+  const tabs = ['onboarding', 'albums', 'recs', 'club', 'vinyl', 'summary'];
   for (const t of tabs) {
     const btn = document.querySelector(`#tabs button[data-tab="${t}"]`);
     const sec = $(`#tab-${t}`);
@@ -1390,10 +1637,31 @@ function switchTab(tabId) {
     if (t === tabId) { btn.classList.add('active'); show(sec); }
     else { btn.classList.remove('active'); hide(sec); }
   }
-  if (tabId === 'recs' && tasteProfile === null) loadTasteProfile(false);
+  if (tabId === 'onboarding') loadOnboarding();
+  if (tabId === 'recs') {
+    if (onboardingStatus !== 'complete') {
+      renderRecsLocked();
+    } else if (tasteProfile === null) {
+      loadTasteProfile(false);
+    }
+  }
   if (tabId === 'summary' && !summaryLoaded) loadSummary();
   if (tabId === 'club' && !clubSessionsLoaded) loadClubSessions();
   if (tabId === 'vinyl' && !vinylLoaded) loadVinyl();
+}
+
+function renderRecsLocked() {
+  const body = $('#profile-body');
+  const meta = $('#profile-meta');
+  if (meta) meta.textContent = '';
+  if (!body) return;
+  body.innerHTML = `<div class="recs-locked">
+    <strong>Recommendations unlock after onboarding.</strong>
+    Rate at least 15 of the 25 onboarding albums to switch this on.
+    <br><button type="button" id="recs-locked-btn">Go to onboarding</button>
+  </div>`;
+  body.querySelector('#recs-locked-btn')?.addEventListener('click', () => switchTab('onboarding'));
+  $('#recs-results').innerHTML = '';
 }
 
 function wireTabs() {
@@ -2162,19 +2430,25 @@ async function loadTasteProfile(rebuild) {
       renderTasteProfile(data);
 
       // Staleness check: count rated personal listens added since this
-      // profile was built. ≥10 triggers an auto-rebuild; below that we
-      // just show the count so Alex can decide. After a rebuild the count
-      // resets naturally because generated_at advances.
-      const STALE_THRESHOLD = 10;
-      const { count } = await sb
-        .from('personal_ratings')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', currentUser.id)
-        .not('rating', 'is', null)
-        .gt('rated_at', data.generated_at);
-      if (count != null) {
-        renderProfileStaleness(count, STALE_THRESHOLD);
-        if (count >= STALE_THRESHOLD) {
+      // profile was built. Threshold is adaptive — new accounts (< 50 total
+      // ratings) get a more responsive 3-rating trigger so the profile
+      // adjusts fast while signal is still sparse. Established accounts
+      // (Alex) stay on the 10-rating threshold to avoid wasteful rebuilds.
+      const [{ count: newCount }, { count: totalCount }] = await Promise.all([
+        sb.from('personal_ratings')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', currentUser.id)
+          .not('rating', 'is', null)
+          .gt('rated_at', data.generated_at),
+        sb.from('personal_ratings')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', currentUser.id)
+          .not('rating', 'is', null),
+      ]);
+      const staleThreshold = (totalCount != null && totalCount < 50) ? 3 : 10;
+      if (newCount != null) {
+        renderProfileStaleness(newCount, staleThreshold);
+        if (newCount >= staleThreshold) {
           tasteProfileLoading = false;          // release the lock before recursing
           return loadTasteProfile(true);
         }
@@ -2368,7 +2642,17 @@ function renderRecs(data) {
   const recId = data.rec_id || '';
   const constraint = data.constraint || '';
 
-  const cards = recs.map((r, idx) => `
+  const cards = recs.map((r, idx) => {
+    const attrs = `data-idx="${idx}"
+        data-rec-id="${escapeHtml(recId)}"
+        data-constraint="${escapeHtml(constraint)}"
+        data-artist="${escapeHtml(r.artist || '')}"
+        data-album="${escapeHtml(r.album || '')}"
+        data-year="${r.year ?? ''}"`;
+    const quickButtons = REC_QUICK_REACTIONS.map(qr =>
+      `<button type="button" class="quick-react-btn ${qr.cls}" data-quick-react data-rating="${qr.rating}" ${attrs} title="Rate ${qr.rating}/10">${escapeHtml(qr.label)}</button>`
+    ).join('');
+    return `
     <div class="rec-card" data-idx="${idx}">
       <div class="head">
         <span class="artist">${escapeHtml(r.artist || '')}</span>
@@ -2377,18 +2661,15 @@ function renderRecs(data) {
       </div>
       <div class="reasoning">${escapeHtml(r.reasoning || '')}</div>
       <div class="add-row">
-        <button class="add-list-btn" data-add-rec data-idx="${idx}"
-          data-rec-id="${escapeHtml(recId)}"
-          data-constraint="${escapeHtml(constraint)}"
-          data-artist="${escapeHtml(r.artist || '')}"
-          data-album="${escapeHtml(r.album || '')}"
-          data-year="${r.year ?? ''}">+ Add to my list</button>
+        <button class="add-list-btn" data-add-rec ${attrs}>+ Add to my list</button>
         <a class="spotify-link" href="spotify:search:${encodeURIComponent(`${r.artist || ''} ${r.album || ''}`.trim())}" target="_blank" rel="noopener" title="Find on Spotify">
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.59 14.41a.625.625 0 01-.86.21c-2.35-1.44-5.31-1.76-8.79-.97a.625.625 0 11-.28-1.22c3.81-.87 7.09-.5 9.72 1.12.3.18.39.57.21.86zm1.22-2.71a.78.78 0 01-1.07.26c-2.69-1.65-6.79-2.13-9.97-1.16a.78.78 0 11-.46-1.49c3.63-1.11 8.16-.58 11.24 1.32.37.23.49.71.26 1.07zm.11-2.83c-3.23-1.92-8.55-2.09-11.63-1.16a.94.94 0 11-.55-1.8c3.54-1.07 9.43-.87 13.13 1.33a.94.94 0 11-.95 1.63z"/></svg>
         </a>
+        <div class="quick-reacts">${quickButtons}</div>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
   const meta = data.n_excluded
     ? `<div class="rec-meta">${data.n_excluded} albums excluded (already heard or previously recommended).</div>`
     : '';
@@ -2397,6 +2678,67 @@ function renderRecs(data) {
   results.querySelectorAll('[data-add-rec]').forEach(btn => {
     btn.addEventListener('click', () => onAddRecToList(btn));
   });
+  results.querySelectorAll('[data-quick-react]').forEach(btn => {
+    btn.addEventListener('click', () => onRecQuickReact(btn));
+  });
+}
+
+const REC_QUICK_REACTIONS = [
+  { rating: 9, label: '♥ 9', cls: 'love' },
+  { rating: 7, label: '👍 7', cls: 'like' },
+  { rating: 5, label: '😐 5', cls: 'meh' },
+  { rating: 3, label: '👎 3', cls: 'dislike' },
+  { rating: 1, label: '👿 1', cls: 'hate' },
+];
+
+async function onRecQuickReact(btn) {
+  if (!currentUser) return;
+  const artist = btn.dataset.artist;
+  const album = btn.dataset.album;
+  const yearRaw = btn.dataset.year;
+  const recId = btn.dataset.recId || null;
+  const constraint = btn.dataset.constraint || null;
+  const rating = Number(btn.dataset.rating);
+  const year = yearRaw ? Number(yearRaw) : null;
+  if (!artist || !album || !Number.isFinite(rating)) return;
+
+  const card = btn.closest('.rec-card');
+  // Lock all interactive controls in this card while we write.
+  card?.querySelectorAll('[data-quick-react],[data-add-rec]').forEach(b => { b.disabled = true; });
+
+  try {
+    const albumId = await resolveCatalogAlbumId(artist, album, year);
+    if (!albumId) throw new Error('Catalog resolve failed');
+
+    // Upsert (album_id, user_id is the PK). source='rec' + provenance.
+    const { error } = await sb
+      .from('personal_ratings')
+      .upsert({
+        album_id: albumId,
+        user_id: currentUser.id,
+        rating,
+        notes: null,
+        source: 'rec',
+        source_rec_id: recId,
+        source_constraint: constraint,
+        rated_at: new Date().toISOString(),
+      }, { onConflict: 'album_id,user_id' });
+    if (error) throw new Error(error.message);
+
+    // Visually mark rated — collapse to a confirmation row.
+    if (card) {
+      card.classList.add('rated');
+      const addRow = card.querySelector('.add-row');
+      if (addRow) addRow.insertAdjacentHTML('beforeend', `<span class="rated-tag">✓ Rated ${rating}/10</span>`);
+    }
+
+    albumsLoaded = false;       // refresh My Albums next time it's opened
+    summaryLoaded = false;      // refresh summary stats
+  } catch (err) {
+    console.error('Quick react failed:', err);
+    card?.querySelectorAll('[data-quick-react],[data-add-rec]').forEach(b => { b.disabled = false; });
+    alert(`Couldn't rate: ${err.message}`);
+  }
 }
 
 async function onAddRecToList(btn) {
@@ -2488,6 +2830,386 @@ async function onAddRecToList(btn) {
 function wireRecsTab() {
   $('#profile-refresh-btn').addEventListener('click', () => loadTasteProfile(true));
   $('#recs-form').addEventListener('submit', onRecsSubmit);
+}
+
+/* ─── Onboarding ──────────────────────────────────────────────────────────
+   Two screens, lazily wired. Step 1 collects three intro questions and posts
+   to onboarding-albums.mjs. Step 2 renders the 25 returned albums as cards
+   with 5 reactions each; reactions write personal_ratings rows with
+   source='onboarding'. When the user clears 15 rated quiz items we flip
+   completed_at, kick the background taste-profile rebuild, and reveal the
+   rest of the tabs. */
+
+const ONBOARDING_GENRES = [
+  'rock', 'hip-hop', 'soul & R&B', 'jazz', 'electronic',
+  'folk & country', 'metal', 'pop', 'indie', 'classical-adjacent', 'other',
+];
+const ONBOARDING_ERAS = ['1960s', '1970s', '1980s', '1990s', '2000s', '2010s', '2020s'];
+const ONBOARDING_REACTIONS = [
+  { key: 'love',    label: '♥ Love',    rating: 9 },
+  { key: 'like',    label: '👍 Like',   rating: 7 },
+  { key: 'dunno',   label: '? Don\'t know', rating: null },
+  { key: 'meh',     label: '😐 Meh',    rating: 5 },
+  { key: 'dislike', label: '👎 Hate',   rating: 2 },
+];
+const ONBOARDING_TARGET = 15;       // threshold to unlock Recommendations
+
+let onboardingLoading = false;
+
+async function loadOnboarding() {
+  if (!currentUser || onboardingLoading) return;
+  if (onboardingStatus === 'complete') {
+    switchTab('albums');
+    return;
+  }
+  onboardingLoading = true;
+  try {
+    // Render intro chips on every entry — cheap, keeps the selection in sync
+    // with any persisted intro_answers we read below.
+    renderOnboardingIntroChips();
+
+    // Pull existing onboarding_quizzes row + any prior onboarding-sourced
+    // personal_ratings so we can show the right step + restore selections.
+    const [{ data: row }, { data: ratingsRows }] = await Promise.all([
+      sb.from('onboarding_quizzes')
+        .select('intro_answers, generated_albums, completed_at')
+        .eq('user_id', currentUser.id)
+        .maybeSingle(),
+      sb.from('personal_ratings')
+        .select('rating, album:albums(artist,album)')
+        .eq('user_id', currentUser.id)
+        .eq('source', 'onboarding')
+        .limit(50),
+    ]);
+
+    if (row?.intro_answers) {
+      applyIntroAnswersToChips(row.intro_answers);
+    }
+
+    if (Array.isArray(row?.generated_albums) && row.generated_albums.length) {
+      // Quiz already generated — go straight to the quiz screen with prior
+      // ratings restored.
+      const ratingsByKey = new Map();
+      for (const r of (ratingsRows || [])) {
+        const a = r.album || {};
+        const key = `${(a.artist || '').toLowerCase()}||${(a.album || '').toLowerCase()}`;
+        ratingsByKey.set(key, r.rating);  // may be null for 'don't know' (but we skip those in writes)
+      }
+      onboardingQuiz = {
+        intro_answers: row.intro_answers || null,
+        albums: row.generated_albums,
+        ratings: ratingsByKey,
+      };
+      showQuizScreen();
+    } else {
+      showIntroScreen();
+    }
+  } catch (err) {
+    console.error('Onboarding load failed:', err);
+    setOnbIntroMessage(err.message, 'error');
+  } finally {
+    onboardingLoading = false;
+  }
+}
+
+function renderOnboardingIntroChips() {
+  const gWrap = $('#onb-genres');
+  const eWrap = $('#onb-eras');
+  if (gWrap && !gWrap.dataset.rendered) {
+    gWrap.innerHTML = ONBOARDING_GENRES.map(g =>
+      `<button type="button" class="chip" data-genre="${escapeHtml(g)}">${escapeHtml(g)}</button>`
+    ).join('');
+    gWrap.dataset.rendered = '1';
+    gWrap.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-genre]');
+      if (btn) btn.classList.toggle('selected');
+    });
+  }
+  if (eWrap && !eWrap.dataset.rendered) {
+    eWrap.innerHTML = ONBOARDING_ERAS.map(g =>
+      `<button type="button" class="chip" data-era="${escapeHtml(g)}">${escapeHtml(g)}</button>`
+    ).join('');
+    eWrap.dataset.rendered = '1';
+    eWrap.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-era]');
+      if (btn) btn.classList.toggle('selected');
+    });
+  }
+}
+
+function applyIntroAnswersToChips(answers) {
+  const selectedG = new Set(answers?.genres || []);
+  const selectedE = new Set(answers?.eras || []);
+  document.querySelectorAll('#onb-genres [data-genre]').forEach(btn => {
+    btn.classList.toggle('selected', selectedG.has(btn.dataset.genre));
+  });
+  document.querySelectorAll('#onb-eras [data-era]').forEach(btn => {
+    btn.classList.toggle('selected', selectedE.has(btn.dataset.era));
+  });
+  if (answers?.anchor_artist) $('#onb-anchor').value = answers.anchor_artist;
+}
+
+function readIntroAnswers() {
+  const genres = [...document.querySelectorAll('#onb-genres .chip.selected')].map(b => b.dataset.genre);
+  const eras = [...document.querySelectorAll('#onb-eras .chip.selected')].map(b => b.dataset.era);
+  const anchor = $('#onb-anchor').value.trim();
+  return { genres, eras, anchor_artist: anchor };
+}
+
+function setOnbIntroMessage(text, kind = 'error') {
+  const el = $('#onb-intro-message');
+  if (!el) return;
+  if (!text) { hide(el); return; }
+  el.textContent = text;
+  el.className = `message ${kind}`;
+  show(el);
+}
+
+function showIntroScreen() {
+  show($('#onboarding-intro'));
+  hide($('#onboarding-quiz'));
+}
+function showQuizScreen() {
+  hide($('#onboarding-intro'));
+  show($('#onboarding-quiz'));
+  renderQuizGrid();
+}
+
+async function onIntroSubmit() {
+  const intro = readIntroAnswers();
+  if (!intro.genres.length && !intro.eras.length && !intro.anchor_artist) {
+    setOnbIntroMessage('Pick at least one genre or era so we can tailor the quiz.', 'error');
+    return;
+  }
+  setOnbIntroMessage('Building your 25-album quiz with Claude — usually 10–15 seconds…', 'info');
+  const btn = $('#onb-intro-submit');
+  btn.disabled = true;
+  try {
+    const headers = { ...(await authHeaders()), 'Content-Type': 'application/json' };
+    const res = await fetch('/.netlify/functions/onboarding-albums', {
+      method: 'POST', headers, body: JSON.stringify(intro),
+    });
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch { throw new Error(text.slice(0, 300) || `${res.status}`); }
+    if (!res.ok) throw new Error(data.error || `${res.status}`);
+
+    onboardingQuiz = {
+      intro_answers: data.intro_answers || intro,
+      albums: data.albums || [],
+      ratings: new Map(),
+    };
+    onboardingStatus = 'in-progress';
+    setOnbIntroMessage(null);
+    showQuizScreen();
+  } catch (err) {
+    console.error('Onboarding intro submit failed:', err);
+    setOnbIntroMessage(`Couldn't generate quiz: ${err.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderQuizGrid() {
+  if (!onboardingQuiz) return;
+  const grid = $('#onb-quiz-grid');
+  if (!grid) return;
+  const html = onboardingQuiz.albums.map((a, idx) => quizCardHtml(a, idx)).join('');
+  grid.innerHTML = html;
+  grid.querySelectorAll('[data-react]').forEach(btn => {
+    btn.addEventListener('click', () => onQuizReact(btn));
+  });
+  updateQuizProgress();
+}
+
+function quizCardHtml(album, idx) {
+  const key = quizAlbumKey(album);
+  const existingRating = onboardingQuiz.ratings.get(key);
+  const isRated = existingRating != null;
+  const artist = album.artist || '';
+  const initial = (artist[0] || '?').toUpperCase();
+  const hue = Math.abs(hashString(`${artist}-${album.album}`)) % 360;
+  const cover = `<div class="cover" style="background: linear-gradient(135deg, hsl(${hue},45%,32%), hsl(${(hue + 50) % 360},55%,18%));">${escapeHtml(initial)}</div>`;
+  const reactions = ONBOARDING_REACTIONS.map(r => {
+    const selected = isRated && r.rating === existingRating;
+    return `<button type="button" class="${r.key}${selected ? ' selected' : ''}" data-react data-idx="${idx}" data-key="${r.key}">${escapeHtml(r.label)}</button>`;
+  }).join('');
+
+  return `<div class="quiz-card${isRated ? ' rated' : ''}" data-idx="${idx}">
+    <div class="head">
+      ${cover}
+      <div class="meta">
+        <div class="artist">${escapeHtml(artist)}</div>
+        <div class="album">${escapeHtml(album.album || '')}</div>
+        <div class="year">${album.year ? escapeHtml(String(album.year)) : ''}</div>
+      </div>
+    </div>
+    <div class="reactions">${reactions}</div>
+    <div class="ratemsg" data-msg="${idx}"></div>
+  </div>`;
+}
+
+function quizAlbumKey(album) {
+  return `${(album.artist || '').toLowerCase()}||${(album.album || '').toLowerCase()}`;
+}
+
+function hashString(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return h;
+}
+
+async function onQuizReact(btn) {
+  if (!currentUser || !onboardingQuiz) return;
+  const idx = Number(btn.dataset.idx);
+  const reactKey = btn.dataset.key;
+  const reaction = ONBOARDING_REACTIONS.find(r => r.key === reactKey);
+  const album = onboardingQuiz.albums[idx];
+  if (!reaction || !album) return;
+
+  const card = btn.closest('.quiz-card');
+  const msgEl = card?.querySelector(`[data-msg="${idx}"]`);
+  card?.querySelectorAll('[data-react]').forEach(b => { b.disabled = true; });
+
+  try {
+    if (reaction.rating == null) {
+      // "Don't know" — no signal. Just mark the card visited and move on.
+      card?.classList.add('rated');
+      onboardingQuiz.ratings.set(quizAlbumKey(album), 'dunno');  // sentinel, never written
+      if (msgEl) msgEl.textContent = 'Skipped — no signal.';
+      updateQuizProgress();
+      return;
+    }
+
+    // Resolve catalog row.
+    let albumId = await resolveCatalogAlbumId(album.artist, album.album, album.year);
+    if (!albumId) throw new Error('Catalog resolve failed');
+
+    // Upsert personal_ratings (album_id, user_id is the PK — upsert flips
+    // rating if the user changes their mind).
+    const { error } = await sb
+      .from('personal_ratings')
+      .upsert({
+        album_id: albumId,
+        user_id: currentUser.id,
+        rating: reaction.rating,
+        notes: null,
+        source: 'onboarding',
+        rated_at: new Date().toISOString(),
+      }, { onConflict: 'album_id,user_id' });
+    if (error) throw new Error(error.message);
+
+    onboardingQuiz.ratings.set(quizAlbumKey(album), reaction.rating);
+    card?.classList.add('rated');
+    card?.querySelectorAll('[data-react]').forEach(b => {
+      b.classList.toggle('selected', b.dataset.key === reactKey);
+    });
+    if (msgEl) msgEl.textContent = `Rated ${reaction.rating}/10.`;
+
+    // Force My Albums to reload next time it's opened — the quiz rows are
+    // real personal_ratings now.
+    albumsLoaded = false;
+
+    updateQuizProgress();
+    maybeCompleteOnboarding();
+  } catch (err) {
+    console.error('Quiz reaction failed:', err);
+    if (msgEl) msgEl.textContent = `Error: ${err.message}`;
+    card?.querySelectorAll('[data-react]').forEach(b => { b.disabled = false; });
+  }
+}
+
+// Insert (or fetch existing) an albums row. Mirrors the resolve pattern used
+// in onAddRecToList.
+async function resolveCatalogAlbumId(artist, album, year) {
+  if (!artist || !album) return null;
+  const { data: ins, error: insErr } = await sb
+    .from('albums')
+    .insert({ artist, album, year: year || null, added_by: currentUser.id, match_status: 'pending' })
+    .select('id')
+    .single();
+  if (!insErr) return ins.id;
+  if (insErr.code !== '23505') throw new Error(insErr.message);
+  const { data: existing, error: selErr } = await sb
+    .from('albums')
+    .select('id')
+    .ilike('artist', artist)
+    .ilike('album', album)
+    .limit(1)
+    .maybeSingle();
+  if (selErr || !existing) throw new Error('Album exists but lookup failed.');
+  return existing.id;
+}
+
+function countRatedQuiz() {
+  if (!onboardingQuiz) return 0;
+  let n = 0;
+  for (const v of onboardingQuiz.ratings.values()) {
+    if (typeof v === 'number') n++;
+  }
+  return n;
+}
+
+function updateQuizProgress() {
+  const ratedNumeric = countRatedQuiz();
+  const total = onboardingQuiz?.albums?.length || 25;
+  const label = $('#onb-progress-label');
+  const fill = $('#onb-bar-fill');
+  const pct = Math.min(100, Math.round((ratedNumeric / ONBOARDING_TARGET) * 100));
+  if (fill) fill.style.width = `${pct}%`;
+  if (label) {
+    if (ratedNumeric >= ONBOARDING_TARGET) {
+      label.innerHTML = `<span class="unlock">${ratedNumeric} / ${total} — Recommendations unlocked ✓</span>`;
+    } else {
+      label.textContent = `${ratedNumeric} / ${ONBOARDING_TARGET} to unlock recs (${total} total)`;
+    }
+  }
+}
+
+let completionFiring = false;
+async function maybeCompleteOnboarding() {
+  if (completionFiring) return;
+  if (onboardingStatus === 'complete') return;
+  if (countRatedQuiz() < ONBOARDING_TARGET) return;
+  completionFiring = true;
+  try {
+    // Mark completed and kick the background taste-profile rebuild.
+    await sb.from('onboarding_quizzes').update({
+      completed_at: new Date().toISOString(),
+    }).eq('user_id', currentUser.id);
+
+    // Background — don't await. If it fails, the rec tab will surface a
+    // generate-button fallback.
+    try {
+      const headers = await authHeaders();
+      fetch('/.netlify/functions/taste-profile-rebuild-background', {
+        method: 'POST', headers,
+      }).catch(() => {});
+    } catch {}
+
+    onboardingStatus = 'complete';
+    const onbBtn = document.querySelector('#tabs button[data-tab="onboarding"]');
+    if (onbBtn) onbBtn.hidden = true;
+
+    const msg = $('#onboarding-quiz-message');
+    if (msg) {
+      msg.innerHTML = `<div class="empty">
+        <strong>Done — Recommendations unlocked.</strong><br>
+        Your taste profile is generating now (~30 seconds in the background).
+        <br><br>
+        <button type="button" class="submit" id="onb-go-recs">Open Recommendations →</button>
+      </div>`;
+      msg.querySelector('#onb-go-recs')?.addEventListener('click', () => switchTab('recs'));
+    }
+  } catch (err) {
+    console.error('Onboarding completion failed:', err);
+  } finally {
+    completionFiring = false;
+  }
+}
+
+function wireOnboardingTab() {
+  $('#onb-intro-submit').addEventListener('click', onIntroSubmit);
 }
 
 /* ─── Summary tab ─────────────────────────────────────────────────────────
@@ -3944,6 +4666,7 @@ wireAuthModal();
 wireTabs();
 wireAlbumsTab();
 wireRecsTab();
+wireOnboardingTab();
 wireSummaryTab();
 wireClubTab();
 wireVinylTab();

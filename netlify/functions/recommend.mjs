@@ -15,7 +15,7 @@
 
 import {
   getEnv, jsonOk, jsonError,
-  verifyHouseholdUser,
+  verifyAuthUser,
   supabaseSelect, supabaseUpsert,
 } from '../lib/spotify-shared.mjs';
 import { callClaude, parseClaudeJson, MODEL_SONNET } from '../lib/claude-shared.mjs';
@@ -35,7 +35,7 @@ export default async (req) => {
   if (!apiKey) return jsonError(500, 'ANTHROPIC_API_KEY missing.');
 
   let userId;
-  try { userId = await verifyHouseholdUser(req, supaUrl, anonKey, serviceKey); }
+  try { userId = await verifyAuthUser(req, supaUrl, anonKey, serviceKey); }
   catch (e) { return jsonError(401, e.message); }
 
   let body;
@@ -70,9 +70,13 @@ export default async (req) => {
     const personalFilter = `user_id=eq.${userId}&select=${encodeURIComponent(personalSelect)}&limit=2000`;
     const personalAll = await supabaseSelect(supaUrl, serviceKey, 'personal_ratings', personalFilter);
 
-    const clubSelect = 'album:albums(artist,album)';
-    const clubFilter = `select=${encodeURIComponent(clubSelect)}&limit=2000`;
-    const clubAll = await supabaseSelect(supaUrl, serviceKey, 'club_sessions', clubFilter);
+    // Club sessions the user has personally participated in (rated). This is
+    // narrower than "every club session ever" because users outside the
+    // household haven't actually heard Alex+dad's picks.
+    const clubSelect = 'session:club_sessions(album:albums(artist,album))';
+    const clubFilter = `user_id=eq.${userId}&select=${encodeURIComponent(clubSelect)}&limit=2000`;
+    const clubAll = await supabaseSelect(supaUrl, serviceKey, 'club_session_ratings', clubFilter)
+      .then(rows => rows.map(r => ({ album: r.session?.album })));
 
     const priorRecsFilter = `user_id=eq.${userId}&order=created_at.desc&limit=${PRIOR_REC_LIMIT}&select=recs`;
     const priorRecsRaw = await supabaseSelect(supaUrl, serviceKey, 'recommendations', priorRecsFilter);

@@ -266,12 +266,13 @@ export async function supabaseUpsert(url, key, table, row, onConflict) {
 }
 
 // ─── User verification ───────────────────────────────────────────────────
-// Reads the bearer JWT from the request, asks Supabase Auth to validate it,
-// returns the user.id. Then checks the user is in household_members. We
-// double-gate: the JWT proves who they are; the allowlist proves they're
-// allowed to drive write-heavy server-side ops.
+// Two flavors:
+//   verifyAuthUser     — JWT-only. Any signed-up user. Used by per-user
+//                        functions (onboarding, taste profile, recommend).
+//   verifyHouseholdUser — JWT + household_members allowlist. Used by club-*
+//                         functions where Alex+dad-only access matters.
 
-export async function verifyHouseholdUser(req, supaUrl, anonKey, serviceKey) {
+export async function verifyAuthUser(req, supaUrl, anonKey, serviceKey) {
   const authHeader = req.headers.get('authorization') || '';
   const match = /^Bearer\s+(.+)$/i.exec(authHeader);
   if (!match) throw new Error('Missing Authorization header');
@@ -287,13 +288,17 @@ export async function verifyHouseholdUser(req, supaUrl, anonKey, serviceKey) {
   if (!meRes.ok) throw new Error(`Auth check failed: ${meRes.status}`);
   const user = await meRes.json();
   if (!user?.id) throw new Error('User token did not resolve.');
+  return user.id;
+}
 
+export async function verifyHouseholdUser(req, supaUrl, anonKey, serviceKey) {
+  const userId = await verifyAuthUser(req, supaUrl, anonKey, serviceKey);
   const rows = await supabaseSelect(
     supaUrl, serviceKey, 'household_members',
-    `user_id=eq.${user.id}&select=user_id`
+    `user_id=eq.${userId}&select=user_id`
   );
   if (!rows?.length) throw new Error('User is not a household member.');
-  return user.id;
+  return userId;
 }
 
 // ─── Response helpers ────────────────────────────────────────────────────

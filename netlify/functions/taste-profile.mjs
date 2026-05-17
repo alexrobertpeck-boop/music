@@ -10,7 +10,7 @@
 
 import {
   getEnv, jsonOk, jsonError,
-  verifyHouseholdUser,
+  verifyAuthUser,
   supabaseSelect,
 } from '../lib/spotify-shared.mjs';
 
@@ -21,7 +21,7 @@ export default async (req) => {
   if (!supaUrl || !serviceKey) return jsonError(500, 'Supabase env vars missing.');
 
   let userId;
-  try { userId = await verifyHouseholdUser(req, supaUrl, anonKey, serviceKey); }
+  try { userId = await verifyAuthUser(req, supaUrl, anonKey, serviceKey); }
   catch (e) { return jsonError(401, e.message); }
 
   try {
